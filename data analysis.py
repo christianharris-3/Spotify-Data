@@ -62,13 +62,20 @@ class Plot:
 class Main:
     def __init__(self):
         self.data = loadjson()
+        self.firstsong = time.time()
+        self.lastsong = 0
+        for a in data:
+            t = datetotime(a['endTime'])
+            if t<self.firstsong: self.firstsong = t
+            if t>self.lastsong: self.lastsong = t
+        
         self.sumdata()
         self.makegui()
     def makegui(self):
         titles = ['','Track','Artist','Listens','Total Playtime','']
         titleobjs = [ui.maketext(0,0,a,30,textcenter=True) for a in titles]
         st = 'ui.screenw'
-        self.maintable = ui.makescrollertable(20,20,[],titleobjs,textsize=25,boxheight=[40,-1],boxwidth=[50,-1,-1,-1,-1,80],width='w-40',pageheight='h-40',scalesize=False,guessheight=36)
+        self.maintable = ui.makescrollertable(20,80,[],titleobjs,textsize=25,boxheight=[40,-1],boxwidth=[50,-1,-1,-1,-1,80],width='w-40',pageheight='h-100',scalesize=False,guessheight=36)
         self.refreshfiltered()
     def refreshfiltered(self,artist='',track='',cutoff=25):
         ndata = []
@@ -84,22 +91,23 @@ class Main:
 
 
         
-    def sumdata(self):
+    def sumdata(self,starttime=0,endtime=time.time()):
         self.summeddatadict = {}
         tempdata = copy.deepcopy(self.data)
         for a in tempdata:
-            if not((a['trackName'],a['artistsName']) in self.summeddatadict):
-                self.summeddatadict[(a['trackName'],a['artistsName'])] = {"Artist":a['artistsName'],
-                                                                          "Track":a['trackName'],
-                                                                          "Listens":self.countsong((a['trackName'],a['artistsName'])),
-                                                                          "Playtime":self.countsong((a['trackName'],a['artistsName']),False)}
+            if datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
+                if not((a['trackName'],a['artistsName']) in self.summeddatadict):
+                    self.summeddatadict[(a['trackName'],a['artistsName'])] = {"Artist":a['artistsName'],
+                                                                              "Track":a['trackName'],
+                                                                              "Listens":self.countsong((a['trackName'],a['artistsName']),starttime,endtime),
+                                                                              "Playtime":self.countsong((a['trackName'],a['artistsName']),starttime,endtime,False)}
         self.summeddata = [self.summeddatadict[a] for a in self.summeddatadict]
         self.summeddata.sort(key=lambda x: x["Listens"],reverse=True)
-    def countsong(self,info,num=True):
+    def countsong(self,info,starttime,endtime,num=True):
         count = 0
         playtime = 0
         for a in self.data:
-            if (a['trackName'],a['artistsName']) == info:
+            if (a['trackName'],a['artistsName']) == info and datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
                 count+=1
                 playtime+=a['msPlayed']
         if num: return count
