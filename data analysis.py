@@ -1,4 +1,5 @@
 import pygame,math,random,datetime,time,json,copy
+import matplotlib.pyplot as plt, numpy as np
 import PyUI as PyUI
 pygame.init()
 screen = pygame.display.set_mode((1200, 800),pygame.RESIZABLE)
@@ -42,9 +43,9 @@ def mstostr(ms):
     ms = sec%1
     if len(s) == 1: s = '0'+s
     if h == 0:
-        return f'{m}:{s}'
+        return f'{m}m {s}s'
     else:
-        return f'{h}:{m}:{s}'
+        return f'{h}h {m}m {s}s'
     
 def makedummy():
 
@@ -70,7 +71,15 @@ def loadjson():
     return data
     
 class Plot:
-    pass
+    def __init__(self):
+        pass
+    def plot(data,songs,samplerate,samplesize,start,end):
+        for s in songs:
+            y = []
+            x = []
+            for a in 
+                if datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
+                    if (a['trackName'],a['artistsName']) == s:
 
 
 
@@ -125,7 +134,7 @@ class Main:
         artist = self.mainsearchbar.text
         track = artist
         self.refreshfiltered(artist,track)
-    def refreshfiltered(self,artist='',track='',cutoff=5):
+    def refreshfiltered(self,artist='',track='',cutoff=25):
         ndata = []
         for a in self.summeddata:
             if (a['Artist'].lower()!='daughter') and (artist.lower() in a['Artist'].lower() or track.lower() in a['Track'].lower()):
@@ -185,7 +194,6 @@ while not done:
     pygame.display.flip()
     clock.tick(60)                                               
 pygame.quit()
-
 
 
 
