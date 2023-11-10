@@ -6,17 +6,31 @@ ui = PyUI.UI()
 done = False
 clock = pygame.time.Clock()
 ui.styleload_green()
+ui.styleset(scalesize=False)
 
-def timetodate(time):
+def timetodate(time,display=False):
     st = str(datetime.datetime.fromtimestamp(time))
-    return st.rsplit(':',1)[0]
+    if display:
+        st = st.replace('-','/')
+        lis = st.split()[0].split('/')
+        return f'{lis[2]}/{lis[1]}/{lis[0]}'
+    else:
+        return st.rsplit(':',1)[0]
 
 def datetotime(date):
-    date,tim = date.split()
-    year,month,day = date.split('-')
-    hour,minute = tim.split(':')
-    obj = datetime.datetime.combine(datetime.date(int(year),int(month),int(day)),datetime.time(int(hour),int(minute)))
-    return obj.timestamp()
+    split = date.split()
+    for a in '/-:.,':
+        split[0] = split[0].replace(a,'-')
+        
+    year,month,day = split[0].split('-')
+    dat = datetime.date(int(year),int(month),int(day))
+    if len(split)>1:
+        for a in '/-:.,':
+            split[1] = split[1].replace(a,':')
+        hour,minute = split[1].split(':')
+        tim = datetime.time(int(hour),int(minute))
+        dat = datetime.datetime.combine(dat,tim)
+    return dat.timestamp()
 
 def mstostr(ms):
     sec = ms/1000
@@ -64,23 +78,46 @@ class Main:
         self.data = loadjson()
         self.firstsong = time.time()
         self.lastsong = 0
-        for a in data:
+        for a in self.data:
             t = datetotime(a['endTime'])
             if t<self.firstsong: self.firstsong = t
             if t>self.lastsong: self.lastsong = t
+        self.daterange = [self.firstsong,self.lastsong]
+
+        self.years = [a+1 for a in range(int(timetodate(self.firstsong).split('-')[0]),int(timetodate(self.lastsong).split('-')[0]))]
+        self.months = ['January','Feburary','March','April','May','June','July','August','September','October','November','December']
         
         self.sumdata()
         self.makegui()
     def makegui(self):
+        # Search Bar
+        self.mainsearchbar = ui.makesearchbar(20,36,width='w/2-40',objanchor=(0,'h/2'),textsize=35,command=self.search)
+        
+        # Date system
+        ui.maketext(20,36,'',35,ID='datedisplay',anchor=('w/2',0),objanchor=(0,'h/2'))
+        self.setdatetext(False)
+        # Date menu
+        window = ui.makewindow(0,20,327,300,objanchor=('w/2',0),anchor=('w/2',0),bounditems=[
+
+            ui.makedropdown(10,10,[x+1 for x in range(31)],command=self.setdatetext,pageheight=200),
+            ui.makedropdown(80,10,self.months,command=self.setdatetext,pageheight=200),
+            ui.makedropdown(233,10,self.years,command=self.setdatetext,pageheight=200)
+
+        ])
+        ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),command=window.open)
+        # Main table
         titles = ['','Track','Artist','Listens','Total Playtime','']
         titleobjs = [ui.maketext(0,0,a,30,textcenter=True) for a in titles]
-        st = 'ui.screenw'
         self.maintable = ui.makescrollertable(20,80,[],titleobjs,textsize=25,boxheight=[40,-1],boxwidth=[50,-1,-1,-1,-1,80],width='w-40',pageheight='h-100',scalesize=False,guessheight=36)
         self.refreshfiltered()
+    def search(self):
+        artist = self.mainsearchbar.text
+        track = artist
+        self.refreshfiltered(artist,track)
     def refreshfiltered(self,artist='',track='',cutoff=25):
         ndata = []
         for a in self.summeddata:
-            if artist in a['Artist'] and track in a['Track']:
+            if (a['Artist'].lower()!='daughter') and (artist.lower() in a['Artist'].lower() or track.lower() in a['Track'].lower()):
                 ndata.append(a)
         ndata = ndata[:cutoff]
         tabledata = []
@@ -113,6 +150,10 @@ class Main:
         if num: return count
         return playtime
 
+    def setdatetext(self,pull=True):
+        self.daterange = [0,0]
+        ui.IDs['datedisplay'].settext(timetodate(self.daterange[0],True)+' {arrow stick=0.5 scale=0.75} '+timetodate(self.daterange[1],True))
+
 main = Main()
 
 while not done:
@@ -128,7 +169,6 @@ while not done:
     pygame.display.flip()
     clock.tick(60)                                               
 pygame.quit()
-
 
 
 
