@@ -29,7 +29,9 @@ def datetotime(date):
             split[1] = split[1].replace(a,':')
         hour,minute = split[1].split(':')
         tim = datetime.time(int(hour),int(minute))
-        dat = datetime.datetime.combine(dat,tim)
+    else:
+        tim = datetime.time(0,0)
+    dat = datetime.datetime.combine(dat,tim)
     return dat.timestamp()
 
 def mstostr(ms):
@@ -97,12 +99,19 @@ class Main:
         ui.maketext(20,36,'',35,ID='datedisplay',anchor=('w/2',0),objanchor=(0,'h/2'))
         self.setdatetext(False)
         # Date menu
-        window = ui.makewindow(0,20,327,300,objanchor=('w/2',0),anchor=('w/2',0),bounditems=[
+        window = ui.makewindow(0,20,327,300,objanchor=('w/2',0),anchor=('w/2',0),ID='datewindow',bounditems=[
 
-            ui.makedropdown(10,10,[x+1 for x in range(31)],command=self.setdatetext,pageheight=200),
-            ui.makedropdown(80,10,self.months,command=self.setdatetext,pageheight=200),
-            ui.makedropdown(233,10,self.years,command=self.setdatetext,pageheight=200)
+            ui.maketext(0,5,'Start Date',35,objanchor=('w/2',0),anchor=('w/2',0)),
+            ui.makedropdown(10,35,[x+1 for x in range(31)],command=self.setdatetext,pageheight=220,ID='dropdownstartday',layer=2,startoptionindex=int(timetodate(self.firstsong,True).split('/')[0])-1),
+            ui.makedropdown(80,35,self.months,command=self.setdatetext,pageheight=220,ID='dropdownstartmonth',layer=2,startoptionindex=int(timetodate(self.firstsong,True).split('/')[1])),
+            ui.makedropdown(233,35,self.years,command=self.setdatetext,pageheight=220,ID='dropdownstartyear',layer=2),
 
+            ui.maketext(0,70,'End Date',35,objanchor=('w/2',0),anchor=('w/2',0)),
+            ui.makedropdown(10,105,[x+1 for x in range(31)],command=self.setdatetext,pageheight=150,ID='dropdownendday',startoptionindex=int(timetodate(self.lastsong,True).split('/')[0])-1),
+            ui.makedropdown(80,105,self.months,command=self.setdatetext,pageheight=150,ID='dropdownendmonth',startoptionindex=int(timetodate(self.lastsong,True).split('/')[1])),
+            ui.makedropdown(233,105,self.years,command=self.setdatetext,pageheight=150,ID='dropdownendyear',startoptionindex=-1),
+
+            ui.makebutton(0,-10,'Apply',32,self.search,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
         ])
         ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),command=window.open)
         # Main table
@@ -111,10 +120,12 @@ class Main:
         self.maintable = ui.makescrollertable(20,80,[],titleobjs,textsize=25,boxheight=[40,-1],boxwidth=[50,-1,-1,-1,-1,80],width='w-40',pageheight='h-100',scalesize=False,guessheight=36)
         self.refreshfiltered()
     def search(self):
+        ui.IDs['datewindow'].shut()
+        self.sumdata()
         artist = self.mainsearchbar.text
         track = artist
         self.refreshfiltered(artist,track)
-    def refreshfiltered(self,artist='',track='',cutoff=25):
+    def refreshfiltered(self,artist='',track='',cutoff=5):
         ndata = []
         for a in self.summeddata:
             if (a['Artist'].lower()!='daughter') and (artist.lower() in a['Artist'].lower() or track.lower() in a['Track'].lower()):
@@ -128,7 +139,9 @@ class Main:
 
 
         
-    def sumdata(self,starttime=0,endtime=time.time()):
+    def sumdata(self):
+        starttime = self.daterange[0]
+        endtime = self.daterange[1]
         self.summeddatadict = {}
         tempdata = copy.deepcopy(self.data)
         for a in tempdata:
@@ -151,7 +164,10 @@ class Main:
         return playtime
 
     def setdatetext(self,pull=True):
-        self.daterange = [0,0]
+        if pull:
+            self.ui = ui
+            self.daterange = [datetotime(f"{ui.IDs['dropdownstartyear'].active}-{self.months.index(self.ui.IDs['dropdownstartmonth'].active)+1}-{ui.IDs['dropdownstartday'].active}"),
+                              datetotime(f"{ui.IDs['dropdownendyear'].active}-{self.months.index(self.ui.IDs['dropdownendmonth'].active)+1}-{ui.IDs['dropdownendday'].active}")]
         ui.IDs['datedisplay'].settext(timetodate(self.daterange[0],True)+' {arrow stick=0.5 scale=0.75} '+timetodate(self.daterange[1],True))
 
 main = Main()
