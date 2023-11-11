@@ -2,7 +2,7 @@ import pygame,math,random,datetime,time,json,copy
 import matplotlib.pyplot as plt, numpy as np
 import PyUI as PyUI
 pygame.init()
-screen = pygame.display.set_mode((1200, 800),pygame.RESIZABLE)
+screen = pygame.display.set_mode((1200, 600),pygame.RESIZABLE)
 ui = PyUI.UI()
 done = False
 clock = pygame.time.Clock()
@@ -62,24 +62,52 @@ def dummyjson(size=20000):
     data = []
     for a in range(size):
         data.append(makedummy())
-    with open('StreamingHistory1.json','w') as f:
+    with open('StreamingHistorydummy.json','w') as f:
         json.dump(data,f)
 
 def loadjson():
-    with open('StreamingHistory1.json','r') as f:
-        data = json.load(f)
+    data = []
+    files = [f'StreamingHistory{i}.json' for i in range(4)]
+    for a in files:
+        print('Loading:',a)
+        with open(a,'r',encoding='utf8') as f:
+            data += json.load(f)
     return data
     
 class Plot:
     def __init__(self):
         pass
-    def plot(data,songs,samplerate,samplesize,start,end):
+    def plot(data,songs,start,end,samplerate,samplesize):
         for s in songs:
-            y = []
-            x = []
-            for a in 
-                if datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
-                    if (a['trackName'],a['artistsName']) == s:
+            graph = []
+            samples = [0]
+            t = start-samplerate
+            index = 0
+            while t<end and index+1<len(data):
+                a = data[index]
+                index+=1
+                if (a['trackName'],a['artistName']) == s:
+##                    print('found song')
+                    if datetotime(a['endTime'])>t+samplerate:
+                        t+=samplerate
+                        graph.append([timetodate(t,True),sum(samples[-4:])])
+                        samples.append(0)
+                    samples[-1]+=1
+            plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]),label=f'{s[0]} - {s[1]}')  
+                
+##            t = start-samplerate
+##            while t<end:
+##                t+=samplerate
+##                graph.append([timetodate(t,True),0])
+##                started = False
+##                for a in data:
+##                    if datetotime(a['endTime'])>t-samplesize and datetotime(a['endTime'])<t:
+##                        if (a['trackName'],a['artistsName']) == s:
+##                            graph[-1][1]+=1
+##            plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]),label=f'{s[0]} - {s[1]}')
+        plt.show()
+            
+                        
 
 
 
@@ -94,6 +122,7 @@ class Main:
             if t<self.firstsong: self.firstsong = t
             if t>self.lastsong: self.lastsong = t
         self.daterange = [self.firstsong,self.lastsong]
+##        print(timetodate(self.firstsong),timetodate(self.lastsong))
 
         self.years = [a+1 for a in range(int(timetodate(self.firstsong).split('-')[0]),int(timetodate(self.lastsong).split('-')[0]))]
         self.months = ['January','Feburary','March','April','May','June','July','August','September','October','November','December']
@@ -137,12 +166,13 @@ class Main:
     def refreshfiltered(self,artist='',track='',cutoff=25):
         ndata = []
         for a in self.summeddata:
-            if (a['Artist'].lower()!='daughter') and (artist.lower() in a['Artist'].lower() or track.lower() in a['Track'].lower()):
+            if (artist.lower() in a['Artist'].lower() or track.lower() in a['Track'].lower()):
                 ndata.append(a)
         ndata = ndata[:cutoff]
         tabledata = []
         for i,a in enumerate(ndata):
-            tabledata.append([ui.maketext(0,0,str(i+1),textcenter=True,col=self.maintable.col),a['Track'],a['Artist'],ui.maketext(0,0,str(a['Listens']),textcenter=True,col=self.maintable.col),mstostr(a['Playtime']),ui.makebutton(0,0,'{dots}')])
+            func = PyUI.funcer(self.opengraphmenu,song=(a['Track'],a['Artist']))
+            tabledata.append([ui.maketext(0,0,str(i+1),textcenter=True,col=self.maintable.col),a['Track'],a['Artist'],ui.maketext(0,0,str(a['Listens']),textcenter=True,col=self.maintable.col),mstostr(a['Playtime']),ui.makebutton(0,0,'{dots}',command=func.func)])
         self.maintable.data = tabledata
         self.maintable.refresh()
 
@@ -152,21 +182,25 @@ class Main:
         starttime = self.daterange[0]
         endtime = self.daterange[1]
         self.summeddatadict = {}
-        tempdata = copy.deepcopy(self.data)
-        for a in tempdata:
+
+        for a in self.data:
             if datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
-                if not((a['trackName'],a['artistsName']) in self.summeddatadict):
-                    self.summeddatadict[(a['trackName'],a['artistsName'])] = {"Artist":a['artistsName'],
+                if not((a['trackName'],a['artistName']) in self.summeddatadict):
+                    self.summeddatadict[(a['trackName'],a['artistName'])] = {"Artist":a['artistName'],
                                                                               "Track":a['trackName'],
-                                                                              "Listens":self.countsong((a['trackName'],a['artistsName']),starttime,endtime),
-                                                                              "Playtime":self.countsong((a['trackName'],a['artistsName']),starttime,endtime,False)}
-        self.summeddata = [self.summeddatadict[a] for a in self.summeddatadict]
+                                                                              "Listens":1,
+                                                                              "Playtime":a['msPlayed']}
+                else:
+                    self.summeddatadict[(a['trackName'],a['artistName'])]['Playtime']+=a['msPlayed']
+                    self.summeddatadict[(a['trackName'],a['artistName'])]['Listens']+=1
+
+        self.summeddata = list(self.summeddatadict.values())
         self.summeddata.sort(key=lambda x: x["Listens"],reverse=True)
     def countsong(self,info,starttime,endtime,num=True):
         count = 0
         playtime = 0
         for a in self.data:
-            if (a['trackName'],a['artistsName']) == info and datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
+            if (a['trackName'],a['artistName']) == info and datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
                 count+=1
                 playtime+=a['msPlayed']
         if num: return count
@@ -178,7 +212,9 @@ class Main:
             self.daterange = [datetotime(f"{ui.IDs['dropdownstartyear'].active}-{self.months.index(self.ui.IDs['dropdownstartmonth'].active)+1}-{ui.IDs['dropdownstartday'].active}"),
                               datetotime(f"{ui.IDs['dropdownendyear'].active}-{self.months.index(self.ui.IDs['dropdownendmonth'].active)+1}-{ui.IDs['dropdownendday'].active}")]
         ui.IDs['datedisplay'].settext(timetodate(self.daterange[0],True)+' {arrow stick=0.5 scale=0.75} '+timetodate(self.daterange[1],True))
-
+    def opengraphmenu(self,song):
+        Plot.plot(self.data,[song],self.daterange[0],self.daterange[1],7*24*60*60,30*24*60*60)
+        
 main = Main()
 
 while not done:
