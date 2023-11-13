@@ -1,4 +1,4 @@
-import pygame,math,random,datetime,time,json,copy
+import pygame,math,random,datetime,time,json,copy,os
 import matplotlib.pyplot as plt, numpy as np
 import PyUI as PyUI
 pygame.init()
@@ -67,9 +67,8 @@ def dummyjson(size=20000):
 
 def loadjson():
     data = []
-    files = [f'StreamingHistory{i}.json' for i in range(4)]
+    files = [PyUI.resourcepath(''+f) for f in os.listdir(PyUI.resourcepath('')) if (f[len(f)-5:]=='.json' and 'StreamingHistory' in f)]
     for a in files:
-        print('Loading:',a)
         with open(a,'r',encoding='utf8') as f:
             data += json.load(f)
     return data
@@ -78,6 +77,7 @@ class Plot:
     def __init__(self):
         pass
     def plot(data,songs,start,end,samplerate,samplesize):
+        print(songs)
         for s in songs:
             graph = []
             samples = [0]
@@ -88,12 +88,14 @@ class Plot:
                 index+=1
                 if (a['trackName'],a['artistName']) == s:
 ##                    print('found song')
-                    if datetotime(a['endTime'])>t+samplerate:
+                    while datetotime(a['endTime'])>t+samplerate:
                         t+=samplerate
-                        graph.append([timetodate(t,True),sum(samples[-4:])])
+                        graph.append([datetime.datetime.fromtimestamp(t),sum(samples[-4:])])
                         samples.append(0)
                     samples[-1]+=1
-            plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]),label=f'{s[0]} - {s[1]}')  
+            plt.xticks(rotation=45)
+            plt.title(f'{s[0]}-{s[1]}')
+            plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]),label=f'{s[0]} - {s[1]}')
                 
 ##            t = start-samplerate
 ##            while t<end:
@@ -105,6 +107,8 @@ class Plot:
 ##                        if (a['trackName'],a['artistsName']) == s:
 ##                            graph[-1][1]+=1
 ##            plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]),label=f'{s[0]} - {s[1]}')
+            print('done',s)
+        leg = plt.legend(loc='upper left')
         plt.show()
             
                         
@@ -124,7 +128,7 @@ class Main:
         self.daterange = [self.firstsong,self.lastsong]
 ##        print(timetodate(self.firstsong),timetodate(self.lastsong))
 
-        self.years = [a+1 for a in range(int(timetodate(self.firstsong).split('-')[0]),int(timetodate(self.lastsong).split('-')[0]))]
+        self.years = [a+1 for a in range(int(timetodate(self.firstsong).split('-')[0])-1,int(timetodate(self.lastsong).split('-')[0]))]
         self.months = ['January','Feburary','March','April','May','June','July','August','September','October','November','December']
         
         self.sumdata()
@@ -152,18 +156,21 @@ class Main:
             ui.makebutton(0,-10,'Apply',32,self.search,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
         ])
         ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),command=window.open)
+
+        
         # Main table
         titles = ['','Track','Artist','Listens','Total Playtime','']
         titleobjs = [ui.maketext(0,0,a,30,textcenter=True) for a in titles]
         self.maintable = ui.makescrollertable(20,80,[],titleobjs,textsize=25,boxheight=[40,-1],boxwidth=[50,-1,-1,-1,-1,80],width='w-40',pageheight='h-100',scalesize=False,guessheight=36)
         self.refreshfiltered()
+        ui.makebutton(-20,20,'Graph',35,self.opengraphmenu,anchor=('w',0),objanchor=('w',0))
     def search(self):
         ui.IDs['datewindow'].shut()
         self.sumdata()
         artist = self.mainsearchbar.text
         track = artist
         self.refreshfiltered(artist,track)
-    def refreshfiltered(self,artist='',track='',cutoff=25):
+    def refreshfiltered(self,artist='',track='',cutoff=30):
         ndata = []
         for a in self.summeddata:
             if (artist.lower() in a['Artist'].lower() or track.lower() in a['Track'].lower()):
@@ -171,8 +178,8 @@ class Main:
         ndata = ndata[:cutoff]
         tabledata = []
         for i,a in enumerate(ndata):
-            func = PyUI.funcer(self.opengraphmenu,song=(a['Track'],a['Artist']))
-            tabledata.append([ui.maketext(0,0,str(i+1),textcenter=True,col=self.maintable.col),a['Track'],a['Artist'],ui.maketext(0,0,str(a['Listens']),textcenter=True,col=self.maintable.col),mstostr(a['Playtime']),ui.makebutton(0,0,'{dots}',command=func.func)])
+            tabledata.append([ui.maketext(0,0,str(i+1),textcenter=True,col=self.maintable.col),a['Track'],a['Artist'],ui.maketext(0,0,str(a['Listens']),textcenter=True,col=self.maintable.col),mstostr(a['Playtime']),ui.makebutton(0,0,'{dots}',toggleable=True)])
+            tabledata[-1][-1].song = (a['Track'],a['Artist'])
         self.maintable.data = tabledata
         self.maintable.refresh()
 
@@ -212,8 +219,14 @@ class Main:
             self.daterange = [datetotime(f"{ui.IDs['dropdownstartyear'].active}-{self.months.index(self.ui.IDs['dropdownstartmonth'].active)+1}-{ui.IDs['dropdownstartday'].active}"),
                               datetotime(f"{ui.IDs['dropdownendyear'].active}-{self.months.index(self.ui.IDs['dropdownendmonth'].active)+1}-{ui.IDs['dropdownendday'].active}")]
         ui.IDs['datedisplay'].settext(timetodate(self.daterange[0],True)+' {arrow stick=0.5 scale=0.75} '+timetodate(self.daterange[1],True))
-    def opengraphmenu(self,song):
-        Plot.plot(self.data,[song],self.daterange[0],self.daterange[1],7*24*60*60,30*24*60*60)
+    def opengraphmenu(self):
+        songs = []
+        for a in self.maintable.table:
+            if type(a[-1]) == PyUI.BUTTON:
+                if not a[-1].toggle:
+                    songs.append(a[-1].song)
+        if len(songs)>0:
+            Plot.plot(self.data,songs,self.daterange[0],self.daterange[1],7*24*60*60,30*24*60*60)
         
 main = Main()
 
