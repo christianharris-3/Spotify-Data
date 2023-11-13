@@ -53,7 +53,7 @@ def makedummy():
     song = random.choice(music)
     
     return {"endTime" : timetodate(random.randint(1600000000,int(time.time()))),
-            "artistsName" : song[0],
+            "artistName" : song[0],
             "trackName" : song[1],
             "msPlayed" : random.randint(20,240000)
         }
@@ -153,6 +153,7 @@ class Main:
             ui.makedropdown(80,105,self.months,command=self.setdatetext,pageheight=150,ID='dropdownendmonth',startoptionindex=int(timetodate(self.lastsong,True).split('/')[1])),
             ui.makedropdown(233,105,self.years,command=self.setdatetext,pageheight=150,ID='dropdownendyear',startoptionindex=-1),
 
+            ui.makeslider(100,165,150,15,len(self.summeddata),boundtext=ui.maketext(20,0,'',objanchor=(0,'h/2'),anchor=('w','h/2')),objanchor=(0,'h/2'),bounditems=[ui.maketext(-10,0,'Results',objanchor=('w','h/2'),anchor=(0,'h/2'))],increment=1,ID='searchresultsnum',startp=30),
             ui.makebutton(0,-10,'Apply',32,self.search,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
         ])
         ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),command=window.open)
@@ -170,7 +171,8 @@ class Main:
         artist = self.mainsearchbar.text
         track = artist
         self.refreshfiltered(artist,track)
-    def refreshfiltered(self,artist='',track='',cutoff=30):
+    def refreshfiltered(self,artist='',track=''):
+        cutoff = ui.IDs['searchresultsnum'].slider
         ndata = []
         for a in self.summeddata:
             if (artist.lower() in a['Artist'].lower() or track.lower() in a['Track'].lower()):
@@ -243,7 +245,6 @@ while not done:
     pygame.display.flip()
     clock.tick(60)                                               
 pygame.quit()
-
 
 
 
