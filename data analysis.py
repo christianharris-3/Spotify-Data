@@ -1,5 +1,5 @@
 import pygame,math,random,datetime,time,json,copy,os
-import matplotlib.pyplot as plt, numpy as np
+##import matplotlib.pyplot as plt, numpy as np
 import PyUI as PyUI
 pygame.init()
 screen = pygame.display.set_mode((1200, 630),pygame.RESIZABLE)
@@ -125,20 +125,23 @@ class Main:
             if t<self.firstsong: self.firstsong = t
             if t>self.lastsong: self.lastsong = t
         self.daterange = [self.firstsong,self.lastsong]
-##        print(timetodate(self.firstsong),timetodate(self.lastsong))
-
+        
         self.years = [a+1 for a in range(int(timetodate(self.firstsong).split('-')[0])-1,int(timetodate(self.lastsong).split('-')[0]))]
         self.months = ['January','Feburary','March','April','May','June','July','August','September','October','November','December']
         
         self.sumdata()
         self.makegui()
+        self.refreshtopcharts()
     def makegui(self):
         # Main page
-        ui.maketext(0,0,'Spotify Stats',100,anchor=('w/2','h/2-200'),center=True,scalesize=True)
-        ui.makebutton(0,0,'Song Table',50,lambda: ui.movemenu('tablepage','up'),anchor=('w/2','h/2-100'),center=True,scalesize=True)
+        ui.maketext(0,-200,'Spotify Stats',100,anchor=('w/2','h/2'),center=True,scalesize=True)
+        ui.makebutton(0,-100,'Song Table',50,lambda: ui.movemenu('tablepage','up'),anchor=('w/2','h/2'),center=True,scalesize=True)
 
         # Main page date system
 
+        ui.maketable(-100,-50,[],[ui.maketext(0,0,'Top Artists',40,backingcol=(87, 132, 86),textcenter=True)],textsize=30,textcenter=False,anchor=('w/2','h/2'),objanchor=('w',0),ID='top artists',width=300,boxheight=[60,-1],height=300,scalesize=True)
+
+        ui.maketable(100,-50,[],[ui.maketext(0,0,'Top Songs',40,backingcol=(87, 132, 86),textcenter=True)],textsize=30,textcenter=False,anchor=('w/2','h/2'),ID='top songs',width=300,boxheight=[60,-1],height=300,scalesize=True)
         
 
         ui.makebutton(-20,36,'Back',35,ui.menuback,'tablepage',anchor=('w',0),objanchor=('w','h/2'))
@@ -168,8 +171,8 @@ class Main:
             ui.makeslider(100,165,140,15,"min(ui.lensummeddata,100)",boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(-10,0,'Results',objanchor=('w','h/2'),anchor=(0,'h/2'))],increment=1,ID='searchresultsnum',startp=30,layer=0),
             ui.makeslider(100,205,140,15,"ui.lensummeddata-min(ui.lensummeddata,100)",boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(-20,0,'Start',objanchor=('w','h/2'),anchor=(0,'h/2'))],increment=50,ID='searchstartnum',startp=0,layer=0),
 
-            ui.makelabeledcheckbox(75,235,'Artist Mode',35,textpos='right',toggle=False,ID='artistmode'),
-            ui.makelabeledcheckbox(75,275,'Combine All',35,textpos='right',toggle=False,ID='combineall'),
+            ui.makelabeledcheckbox(75,235,'Artist Mode',35,textpos='right',toggle=False,ID='artistmode',layer=0),
+            ui.makelabeledcheckbox(75,275,'Combine All',35,textpos='right',toggle=False,ID='combineall',layer=0),
             ui.makebutton(0,-10,'Apply',32,self.search,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
         ])
         ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),command=window.open,menu='tablepage')
@@ -185,6 +188,7 @@ class Main:
         artist = self.mainsearchbar.text
         track = artist
         self.refreshfiltered(artist,track)
+        self.refreshtopcharts()
     def refreshfiltered(self,artist='',track=''):
         cutoff = ui.IDs['searchresultsnum'].slider
         startp = ui.IDs['searchstartnum'].slider
@@ -220,13 +224,27 @@ class Main:
 
         self.maintable.threadrefresh()
 
-
+    def refreshtopcharts(self):
+        topartists = [[a["Artist"]] for a in self.sumdata(True,True,False)[:5]]
+        topsongs = [[a["Track"]+'\n{"'+a["Artist"]+'" col=(190,200,160) scale=0.8}'] for a in self.sumdata(True,False,False)[:5]]
+        ui.IDs['top artists'].data = topartists
+        ui.IDs['top artists'].refresh()
+        ui.IDs['top songs'].data = topsongs
+        ui.IDs['top songs'].refresh()
+        total = self.sumdata(True,False,True)[0]
+        total = [total['Listens'],total['Playtime']]
         
-    def sumdata(self):
+        
+        
+    def sumdata(self,retur=False,artistmode=-1,everything=-1):
         starttime = self.daterange[0]
         endtime = self.daterange[1]
-        if 'artistmode' in ui.IDs: artistmode,everything = ui.IDs['artistmode'].toggle,ui.IDs['combineall'].toggle
-        else: artistmode,everything = False,False
+        if artistmode == -1:
+            if 'artistmode' in ui.IDs: artistmode = ui.IDs['artistmode'].toggle
+            else: artistmode = False
+        if everything == -1:
+            if 'artistmode' in ui.IDs: everything = ui.IDs['combineall'].toggle
+            else: everything = False
         self.summeddatadict = {}
 
         for a in self.data:
@@ -239,10 +257,14 @@ class Main:
                 else:
                     self.summeddatadict[key]['Playtime']+=a['msPlayed']
                     self.summeddatadict[key]['Listens']+=1
-
-        self.summeddata = list(self.summeddatadict.values())
-        self.summeddata.sort(key=lambda x: x["Listens"],reverse=True)
-        ui.lensummeddata = len(self.summeddata)
+        if not retur:
+            self.summeddata = list(self.summeddatadict.values())
+            self.summeddata.sort(key=lambda x: x["Listens"],reverse=True)
+            ui.lensummeddata = len(self.summeddata)
+        else:
+            lis = list(self.summeddatadict.values())
+            lis.sort(key=lambda x: x["Listens"],reverse=True)
+            return lis
     def countsong(self,info,starttime,endtime,num=True):
         count = 0
         playtime = 0
@@ -283,7 +305,6 @@ while not done:
     pygame.display.flip()
     clock.tick(60)                                               
 pygame.quit()
-
 
 
 
