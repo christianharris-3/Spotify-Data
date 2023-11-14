@@ -139,10 +139,9 @@ class Main:
 
         # Main page date system
 
-        ui.maketable(-100,-50,[],[ui.maketext(0,0,'Top Artists',40,backingcol=(87, 132, 86),textcenter=True)],textsize=30,textcenter=False,anchor=('w/2','h/2'),objanchor=('w',0),ID='top artists',width=300,boxheight=[60,-1],height=300,scalesize=True)
-
-        ui.maketable(100,-50,[],[ui.maketext(0,0,'Top Songs',40,backingcol=(87, 132, 86),textcenter=True)],textsize=30,textcenter=False,anchor=('w/2','h/2'),ID='top songs',width=300,boxheight=[60,-1],height=300,scalesize=True)
-        
+        ui.maketable(-110,-50,[],[ui.maketext(0,0,'Top Artists',40,backingcol=(87, 132, 86),textcenter=True)],textsize=30,textcenter=False,anchor=('w/2','h/2'),objanchor=('w',0),ID='top artists',width=300,boxheight=[60,-1],height=300,scalesize=True)
+        ui.maketable(110,-50,[],[ui.maketext(0,0,'Top Songs',40,backingcol=(87, 132, 86),textcenter=True)],textsize=30,textcenter=False,anchor=('w/2','h/2'),ID='top songs',width=300,boxheight=[60,-1],height=300,scalesize=True)
+        ui.maketext(0,20,'',40,anchor=('w/2','h/2'),textcenter=True,center=True,maxwidth=300,scalesize=True,ID='top text')
 
         ui.makebutton(-20,36,'Back',35,ui.menuback,'tablepage',anchor=('w',0),objanchor=('w','h/2'))
 
@@ -177,7 +176,6 @@ class Main:
         ])
         ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),command=window.open,menu='tablepage')
 
-        
         # Main table
         self.maintable = ui.makescrollertable(20,72,[],[],textsize=25,boxheight=[40,-1],boxwidth=[50,-1,-1,-1,-1,80],width='w-40',pageheight='h-92',scalesize=False,guessheight=36,menu='tablepage')
         self.refreshfiltered()
@@ -187,8 +185,8 @@ class Main:
         self.sumdata()
         artist = self.mainsearchbar.text
         track = artist
-        self.refreshfiltered(artist,track)
         self.refreshtopcharts()
+        self.refreshfiltered(artist,track)
     def refreshfiltered(self,artist='',track=''):
         cutoff = ui.IDs['searchresultsnum'].slider
         startp = ui.IDs['searchstartnum'].slider
@@ -231,8 +229,13 @@ class Main:
         ui.IDs['top artists'].refresh()
         ui.IDs['top songs'].data = topsongs
         ui.IDs['top songs'].refresh()
-        total = self.sumdata(True,False,True)[0]
-        total = [total['Listens'],total['Playtime']]
+        t0 = self.sumdata(True,False,True)[0]
+        total = [str(t0['Listens']),mstostr(t0['Playtime'])]
+        perday = t0['Playtime']/(self.daterange[1]-self.daterange[0])/1000/60/60/24
+        for i in range(len(total)):
+            total[i] = '{"'+total[i]+'" col=(190,200,160)}'
+        txt = f'Total Listens\n{total[0]}\nWhich is\n{total[1]}\nPer day\n{perday}'
+        ui.IDs['top text'].settext(txt)
         
         
         
