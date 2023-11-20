@@ -194,6 +194,7 @@ class Main:
   
             ui.makebutton(0,-10,'Create',32,command=self.generategraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
             ])
+
     def search(self):
         ui.IDs['datewindow'].shut()
         self.sumdata()
@@ -233,7 +234,7 @@ class Main:
         if everything:
             self.maintable.startboxwidth = [50,-1,-1,80]
             titles = ['','Listens','Total Playtime','']
-        self.maintable.titles = [ui.maketext(0,0,a,30,textcenter=True) for a in titles]
+        self.maintable.titles = [ui.maketext(0,-100,a,30,textcenter=True) for a in titles]
         self.maintable.data = tabledata
 
         self.maintable.threadrefresh()
@@ -277,9 +278,10 @@ class Main:
                 if artistmode: key = a['artistName']
                 if everything: key = 1
                 if not(key in self.summeddatadict):
-                    self.summeddatadict[key] = {"Artist":a['artistName'],"Track":a['trackName'],"Listens":1,"Playtime":a['msPlayed']}
+                    self.summeddatadict[key] = {"Artist":a['artistName'],"Track":a['trackName'],"Listens":0,"Playtime":a['msPlayed']}
                 else:
                     self.summeddatadict[key]['Playtime']+=a['msPlayed']
+                if self.summeddatadict[key]['Playtime']>30000:
                     self.summeddatadict[key]['Listens']+=1
 
         lis = list(self.summeddatadict.values())
