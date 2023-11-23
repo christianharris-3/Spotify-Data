@@ -66,15 +66,42 @@ def dummyjson(size=20000):
         json.dump(data,f)
     return data
 
+def converttofulldata(data):
+    ndata = []
+    for d in data:
+        if "ts" in d:
+            ndata.append(d)
+            ndata[-1]['endTime'] = d['ts'].replace('T',' ').rsplit(':',1)[0]
+            ndata[-1]['msPlayed'] = d['ms_played']
+            ndata[-1]['artistName'] = d['master_metadata_album_artist_name']
+            ndata[-1]['trackName'] = d['master_metadata_track_name']
+        else:
+            ndata.append({"ts":d['endTime'].replace(' ','T')+':00Z',
+                          "username":"Christian","platform":"unkown",
+                          "ms_played":d['msPlayed'],"conn_country":"GB",
+                          "ip_addr_decrypted":"unkown","user_agent_decrypted":"unknown",
+                          "master_metadata_track_name":d['trackName'],
+                          "master_metadata_album_artist_name":d['artistName'],
+                          "master_metadata_album_album_name":"unknown",
+                          "spotify_track_uri":"unknown","episode_name":None,
+                          "episode_show_name":None,"spotify_episode_uri":None,
+                          "reason_start":"unknown","reason_end":"unknown",
+                          "shuffle":-1,"skipped":-1,"offline":-1,
+                          "offline_timestamp":0,"incognito_mode":-1,
+                          'endTime':d['endTime'],'msPlayed':d['msPlayed'],
+                          'artistName':d['artistName'],'trackName':d['trackName']})
+    return ndata
+
+
 def loadjson():
     data = []
-    files = [PyUI.resourcepath(''+f) for f in os.listdir(PyUI.resourcepath('')) if (f[len(f)-5:]=='.json' and 'StreamingHistory' in f)]
+    files = [PyUI.resourcepath(''+f) for f in os.listdir(PyUI.resourcepath('')) if (f[len(f)-5:]=='.json' and ('StreamingHistory' in f or 'Streaming_History' in f))]
     for a in files:
         with open(a,'r',encoding='utf8') as f:
             data += json.load(f)
     if len(data) == 0:
         data = dummyjson(420)
-    return data
+    return converttofulldata(data)
     
 class Plot:
     def __init__(self):
@@ -114,7 +141,10 @@ class Plot:
                 else: plt.title('Songs')
             leg = plt.legend(loc='upper left')
         plt.show()
-            
+    def plotsummed(summeddata):
+        plt.yscale('symlog')
+        plt.plot(np.array([a['Playtime']/1000/60 for a in summeddata]))
+        plt.show()  
                         
 
 
@@ -192,7 +222,8 @@ class Main:
             ui.makeslider(20,55,220,15,365,minp=1,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Time(days)',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1,ID='graph time',startp=30,layer=0),
             ui.makeslider(20,125,220,15,100,minp=1,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Points per Time',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1,ID='graph PpT',startp=30,layer=0),
   
-            ui.makebutton(0,-10,'Create',32,command=self.generategraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
+            ui.makebutton(-80,-10,'Create',32,command=self.generategraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0),
+            ui.makebutton(80,-10,'L/R',32,command=self.generatetimerankinggraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
             ])
 
     def search(self):
@@ -210,7 +241,7 @@ class Main:
             
         ndata = []
         for i,a in enumerate(self.summeddata):
-            if (artist.lower() in a['Artist'].lower() or track.lower() in a['Track'].lower()):
+            if ((a['Artist']!=None and artist.lower() in a['Artist'].lower()) or (a['Track']!=None and track.lower() in a['Track'].lower())):
                 ndata.append([a,i])
         ui.searchresultsnum = len(ndata)
         ui.IDs['searchresultsnum'].refresh()
@@ -274,11 +305,11 @@ class Main:
 
         for a in self.data:
             if datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
-                key = (a['trackName'],a['artistName'])
-                if artistmode: key = a['artistName']
+                key = (a['master_metadata_track_name'],a['master_metadata_album_artist_name'])
+                if artistmode: key = a['master_metadata_album_artist_name']
                 if everything: key = 1
                 if not(key in self.summeddatadict):
-                    self.summeddatadict[key] = {"Artist":a['artistName'],"Track":a['trackName'],"Listens":0,"Playtime":a['msPlayed']}
+                    self.summeddatadict[key] = {"Artist":a['master_metadata_album_artist_name'],"Track":a['master_metadata_track_name'],"Listens":0,"Playtime":a['msPlayed']}
                 else:
                     self.summeddatadict[key]['Playtime']+=a['msPlayed']
                 if self.summeddatadict[key]['Playtime']>30000:
@@ -319,7 +350,9 @@ class Main:
             time = ui.IDs['graph time'].slider
             PpT = ui.IDs['graph PpT'].slider
             Plot.plot(self.data,songs,self.daterange[0],self.daterange[1],(time/PpT)*24*60*60,time*24*60*60,ui.IDs['artistmode'].toggle,ui.IDs['combineall'].toggle)
-            
+    def generatetimerankinggraph(self):
+        Plot.plotsummed(self.summeddata)
+        
 main = Main()
 
 while not done:
