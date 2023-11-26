@@ -66,6 +66,14 @@ def dummyjson(size=20000):
         json.dump(data,f)
     return data
 
+def intotextfile(data):
+    with open('alldata.txt','w') as f:
+        for a in data:
+            try:
+                f.writelines(f'artist:{a["artistName"]} track:{a["trackName"]} time:{mstostr(a["msPlayed"])} endTime:{a["endTime"]}\n')
+            except:
+                f.writelines(f'Unkown_Song time:{mstostr(a["msPlayed"])} endTime:{a["endTime"]}\n')
+
 def converttofulldata(data):
     ndata = []
     for d in data:
@@ -90,6 +98,9 @@ def converttofulldata(data):
                           "offline_timestamp":0,"incognito_mode":-1,
                           'endTime':d['endTime'],'msPlayed':d['msPlayed'],
                           'artistName':d['artistName'],'trackName':d['trackName']})
+        if ndata[-1]['artistName'] == None: ndata[-1]['artistName'] = 'None'
+        if ndata[-1]['trackName'] == None: ndata[-1]['trackName'] = 'None'
+    intotextfile(ndata)
     return ndata
 
 
@@ -108,21 +119,25 @@ class Plot:
         pass
     def plot(data,songs,start,end,samplerate,samplesize,artistmode,everything):
         pointspertime = round(samplesize/samplerate)
+        data.sort(key = lambda x: datetotime(x['endTime']))
         for s in songs:
             graph = []
             samples = [0]
-            t = start-samplerate
+            t = start-samplesize
             index = 0
+            while datetotime(data[index]['endTime'])<t:
+                index+=1
+##            print(s,index,data[index]['endTime'],t,datetotime(data[index]['endTime']),start,samplerate)
             while t<end and index+1<len(data):
                 a = data[index]
                 index+=1
                 if (not artistmode and (a['trackName'],a['artistName']) == s) or (artistmode and a['artistName'] == s[1]) or (everything):
                     while datetotime(a['endTime'])>t+samplerate:
-                        t+=samplerate
-                        graph.append([datetime.datetime.fromtimestamp(t),sum(samples[-pointspertime:])])
+                        if t>start: graph.append([datetime.datetime.fromtimestamp(t),sum(samples[-pointspertime:])])
                         samples.append(0)
-                    samples[-1]+=1
-            
+                        t+=samplerate
+                    samples[-1]+=a['msPlayed']/(1000*60*60)
+                    
             plt.xticks(rotation=30)
             if not everything:
                 if artistmode: name = f'{s[1]}'
@@ -130,6 +145,8 @@ class Plot:
                 plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]),label=name)
             else:
                 plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]))
+        plt.xlabel('Dates')
+        plt.ylabel(f'Listen Time Over {round(samplesize/60/60/24)} Days in Hours')
         if everything:
             plt.title('All Music')
         else:
@@ -219,7 +236,7 @@ class Main:
         # Graph table
         ui.makebutton(115,36,'Graph',35,self.opengraphmenu,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),menu='tablepage')
         window = ui.makewindow(0,20,327,190,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='graphwindow',bounditems=[
-            ui.makeslider(20,55,220,15,365,minp=1,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Time(days)',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1,ID='graph time',startp=30,layer=0),
+            ui.makeslider(20,55,220,15,365,minp=1/24,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Time(days)',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1/24,ID='graph time',startp=30,layer=0),
             ui.makeslider(20,125,220,15,100,minp=1,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Points per Time',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1,ID='graph PpT',startp=30,layer=0),
   
             ui.makebutton(-80,-10,'Create',32,command=self.generategraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0),
@@ -284,6 +301,7 @@ class Main:
         
         total = [str(t0['Listens']),mstostr(t0['Playtime']),str(round(days/30))+' Months',
                  mstostr((t0['Playtime'])/days)]
+        if days<30: total[2] = str(round(days))+' Days'
         for i in range(len(total)):
             total[i] = '{"'+total[i]+'" col=(170,190,150)}'
         txt = f'Data Over\n{total[2]}\nTotal Listens\n{total[0]}\nListen Time\n{total[1]}\nTime Per day\n{total[3]}'
@@ -305,11 +323,11 @@ class Main:
 
         for a in self.data:
             if datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
-                key = (a['master_metadata_track_name'],a['master_metadata_album_artist_name'])
-                if artistmode: key = a['master_metadata_album_artist_name']
+                key = (a['trackName'],a['artistName'])
+                if artistmode: key = a['artistName']
                 if everything: key = 1
                 if not(key in self.summeddatadict):
-                    self.summeddatadict[key] = {"Artist":a['master_metadata_album_artist_name'],"Track":a['master_metadata_track_name'],"Listens":0,"Playtime":a['msPlayed']}
+                    self.summeddatadict[key] = {"Artist":a['artistName'],"Track":a['trackName'],"Listens":0,"Playtime":a['msPlayed']}
                 else:
                     self.summeddatadict[key]['Playtime']+=a['msPlayed']
                 if self.summeddatadict[key]['Playtime']>30000:
