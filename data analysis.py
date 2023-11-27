@@ -137,6 +137,10 @@ class Plot:
                         samples.append(0)
                         t+=samplerate
                     samples[-1]+=a['msPlayed']/(1000*60*60)
+            while t<end:
+                graph.append([datetime.datetime.fromtimestamp(t),sum(samples[-pointspertime:])])
+                samples.append(0)
+                t+=samplerate
                     
             plt.xticks(rotation=30)
             if not everything:
