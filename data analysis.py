@@ -35,6 +35,14 @@ def datetotime(date):
         tim = datetime.time(0,0)
     dat = datetime.datetime.combine(dat,tim)
     return dat.timestamp()
+def datetoweekday(date):
+    split = date.split()
+    for a in '/-:.,':
+        split[0] = split[0].replace(a,'-')
+        
+    year,month,day = split[0].split('-')
+    dat = datetime.date(int(year),int(month),int(day))
+    return dat.weekday()
 
 def mstostr(ms):
     sec = ms/1000
@@ -106,7 +114,7 @@ def converttofulldata(data):
 
 def loadjson():
     data = []
-    files = [PyUI.resourcepath(''+f) for f in os.listdir(PyUI.resourcepath('')) if (f[len(f)-5:]=='.json' and ('StreamingHistory' in f or 'Streaming_History' in f))]
+    files = [PyUI.resourcepath(''+f) for f in os.listdir(PyUI.resourcepath('')) if (('StreamingHistory' in f or 'Streaming_History' in f) and f[len(f)-5:]=='.json')]
     for a in files:
         with open(a,'r',encoding='utf8') as f:
             data += json.load(f)
@@ -165,7 +173,41 @@ class Plot:
     def plotsummed(summeddata):
         plt.yscale('symlog')
         plt.plot(np.array([a['Playtime']/1000/60 for a in summeddata]))
-        plt.show()  
+        plt.show()
+    def plotday(data,songs,start,end,artistmode,everything,typ):
+        data.sort(key = lambda x: datetotime(x['endTime']))
+        if typ == 'week':
+            xaxis = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+        elif typ == 'day':
+            xaxis = [str(a+1)+'am' for a in range(12)]+[str(a+1)+'pm' for a in range(12)]
+        elif typ == 'month':
+            wordends = ['st','nd','rd']+['th' for a in range(17)]+['st','nd','rd']+['th' for a in range(7)]+['st']
+            xaxis = [str(a+1)+wordends[a] for a in range(31)]
+        for s in songs:
+            bars = [0 for a in range(len(xaxis))]
+            for a in data:
+                if (not artistmode and (a['trackName'],a['artistName']) == s) or (artistmode and a['artistName'] == s[1]) or (everything):
+                    t = a['msPlayed']/1000/60/60
+                    if typ == 'week': bars[datetoweekday(a['endTime'])]+=t
+                    elif typ == 'day': bars[int(a['endTime'].split()[1].split(':')[0])]+=t
+                    elif typ == 'month': bars[int(a['endTime'].split()[0].split('-')[2])-1]+=t
+            if not everything:
+                if artistmode: name = f'{s[1]}'
+                else: name = f'{s[0]} - {s[1]}'
+                plt.plot(xaxis,bars,label=name)
+            else: plt.plot(xaxis,bars)
+        plt.ylabel(f'Total Listen Time in Hours')
+        if typ == 'week': plt.xticks(rotation=18)
+        else: plt.xticks(rotation=45)
+        if not everything:
+            leg = plt.legend(loc='upper left')
+        plt.show()
+        
+
+        
+        
+
+        
                         
 
 
@@ -239,12 +281,12 @@ class Main:
 
         # Graph table
         ui.makebutton(115,36,'Graph',35,self.opengraphmenu,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),menu='tablepage')
-        window = ui.makewindow(0,20,327,190,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='graphwindow',bounditems=[
-            ui.makeslider(20,55,220,15,365,minp=1/24,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Time(days)',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1/24,ID='graph time',startp=30,layer=0),
-            ui.makeslider(20,125,220,15,100,minp=1,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Points per Time',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1,ID='graph PpT',startp=30,layer=0),
-  
-            ui.makebutton(-80,-10,'Create',32,command=self.generategraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0),
-            ui.makebutton(80,-10,'L/R',32,command=self.generatetimerankinggraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
+        window = ui.makewindow(0,20,327,230,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='graphwindow',bounditems=[
+            ui.makeslider(20,95,220,15,365,minp=1/24,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Time(days)',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1/24,ID='graph time',startp=30,layer=0),
+            ui.makeslider(20,165,220,15,100,minp=1,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Points per Time',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1,ID='graph PpT',startp=30,layer=0),
+
+            ui.makedropdown(0,15,['Normal','Day','Week','Month'],30,objanchor=('w/2',0),anchor=('w/2',0),layer=1,ID='graph type'),
+            ui.makebutton(0,-10,'Create',32,command=self.generategraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0),
             ])
 
     def search(self):
@@ -364,6 +406,7 @@ class Main:
         ui.IDs['graphwindow'].open()
     def generategraph(self):
         songs = []
+        typ = ui.IDs['graph type'].active.lower()
         for a in self.maintable.table:
             if type(a[-1]) == PyUI.BUTTON:
                 if not a[-1].toggle:
@@ -371,7 +414,8 @@ class Main:
         if len(songs)>0:
             time = ui.IDs['graph time'].slider
             PpT = ui.IDs['graph PpT'].slider
-            Plot.plot(self.data,songs,self.daterange[0],self.daterange[1],(time/PpT)*24*60*60,time*24*60*60,ui.IDs['artistmode'].toggle,ui.IDs['combineall'].toggle)
+            if typ == 'normal': Plot.plot(self.data,songs,self.daterange[0],self.daterange[1],(time/PpT)*24*60*60,time*24*60*60,ui.IDs['artistmode'].toggle,ui.IDs['combineall'].toggle)
+            else: Plot.plotday(self.data,songs,self.daterange[0],self.daterange[1],ui.IDs['artistmode'].toggle,ui.IDs['combineall'].toggle,typ)
     def generatetimerankinggraph(self):
         Plot.plotsummed(self.summeddata)
         
@@ -390,7 +434,6 @@ while not done:
     pygame.display.flip()
     clock.tick(60)                                               
 pygame.quit()
-
 
 
 
