@@ -114,7 +114,13 @@ def converttofulldata(data):
 
 def loadjson():
     data = []
-    files = [PyUI.resourcepath(''+f) for f in os.listdir(PyUI.resourcepath('')) if (('StreamingHistory' in f or 'Streaming_History' in f) and f[len(f)-5:]=='.json')]
+    filesyear = [PyUI.resourcepath(''+f) for f in os.listdir(PyUI.resourcepath('')) if (('StreamingHistory' in f) and f[len(f)-5:]=='.json')]
+    filesall = [PyUI.resourcepath(''+f) for f in os.listdir(PyUI.resourcepath('')) if (('Streaming_History' in f) and f[len(f)-5:]=='.json')]
+    files = []
+    if len(filesyear) == 0: files = filesall
+    elif len(filesall) == 0: files = filesyear
+    else: files = filesall
+    
     for a in files:
         with open(a,'r',encoding='utf8') as f:
             data += json.load(f)
@@ -125,17 +131,20 @@ def loadjson():
 class Plot:
     def __init__(self):
         pass
-    def plot(data,songs,start,end,samplerate,samplesize,artistmode,everything):
+    def plot(data,songs,start,end,samplerate,samplesize):
         pointspertime = round(samplesize/samplerate)
         data.sort(key = lambda x: datetotime(x['endTime']))
-        for s in songs:
+        print(songs)
+        for song in songs:
+            s = song[0]
+            artistmode = song[1]
+            everything = song[2]
             graph = []
             samples = [0]
             t = start-samplesize
             index = 0
             while datetotime(data[index]['endTime'])<t:
                 index+=1
-##            print(s,index,data[index]['endTime'],t,datetotime(data[index]['endTime']),start,samplerate)
             while t<end and index+1<len(data):
                 a = data[index]
                 index+=1
@@ -174,7 +183,7 @@ class Plot:
         plt.yscale('symlog')
         plt.plot(np.array([a['Playtime']/1000/60 for a in summeddata]))
         plt.show()
-    def plotday(data,songs,start,end,artistmode,everything,typ):
+    def plotday(data,songs,start,end,typ):
         data.sort(key = lambda x: datetotime(x['endTime']))
         if typ == 'week':
             xaxis = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
@@ -183,7 +192,10 @@ class Plot:
         elif typ == 'month':
             wordends = ['st','nd','rd']+['th' for a in range(17)]+['st','nd','rd']+['th' for a in range(7)]+['st']
             xaxis = [str(a+1)+wordends[a] for a in range(31)]
-        for s in songs:
+        for song in songs:
+            s = song[0]
+            artistmode = song[1]
+            everything = song[2]
             bars = [0 for a in range(len(xaxis))]
             for a in data:
                 if (not artistmode and (a['trackName'],a['artistName']) == s) or (artistmode and a['artistName'] == s[1]) or (everything):
@@ -218,6 +230,7 @@ class Main:
         self.data = loadjson()
         self.firstsong = time.time()
         self.lastsong = 0
+        self.storedsel = []
         ui.searchresultsnum = len(self.data)
         for a in self.data:
             t = datetotime(a['endTime'])
@@ -273,7 +286,7 @@ class Main:
             
             ui.makebutton(0,-10,'Apply',32,self.search,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
         ])
-        ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),command=window.open,menu='tablepage')
+        ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),command=self.openeditmenu,menu='tablepage')
 
         # Main table
         self.maintable = ui.makescrollertable(20,72,[],[],textsize=25,boxheight=[40,-1],boxwidth=[50,-1,-1,-1,-1,80],width='w-40',pageheight='h-92',scalesize=False,guessheight=36,menu='tablepage')
@@ -281,11 +294,12 @@ class Main:
 
         # Graph table
         ui.makebutton(115,36,'Graph',35,self.opengraphmenu,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),menu='tablepage')
-        window = ui.makewindow(0,20,327,230,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='graphwindow',bounditems=[
+        window = ui.makewindow(0,20,327,260,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='graphwindow',bounditems=[
             ui.makeslider(20,95,220,15,365,minp=1/24,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Time(days)',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1/24,ID='graph time',startp=30,layer=0),
             ui.makeslider(20,165,220,15,100,minp=1,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Points per Time',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1,ID='graph PpT',startp=30,layer=0),
 
             ui.makedropdown(0,15,['Normal','Day','Week','Month'],30,objanchor=('w/2',0),anchor=('w/2',0),layer=1,ID='graph type'),
+            ui.makebutton(0,180,'Clear',32,command=self.clearselected,objanchor=('w/2',0),anchor=('w/2',0)),
             ui.makebutton(0,-10,'Create',32,command=self.generategraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0),
             ])
 
@@ -315,11 +329,14 @@ class Main:
         ndata = ndata[startp:startp+cutoff]
         tabledata = []
         for a,i in ndata:
-            tabledata.append([ui.maketext(-100,0,str(i+1),textcenter=True,col=self.maintable.col),a['Artist'],ui.maketext(-100,0,str(a['Listens']),textcenter=True,col=self.maintable.col),mstostr(a['Playtime']),ui.makebutton(-50,0,'{dots}',toggleable=True)])
+            func = PyUI.funcer(self.updateselected,song=[(a['Track'],a['Artist']),artistmode,everything])
+            tabledata.append([ui.maketext(-100,0,str(i+1),textcenter=True,col=self.maintable.col),a['Artist'],ui.maketext(-100,0,str(a['Listens']),textcenter=True,col=self.maintable.col),mstostr(a['Playtime']),ui.makebutton(-50,0,'{dots}',toggleable=True,ID=f'{a["Track"]},{a["Artist"]}',command=func.func)])
             if everything:
                 del tabledata[-1][1]
             elif not artistmode: tabledata[-1].insert(1,a['Track'])
             tabledata[-1][-1].song = (a['Track'],a['Artist'])
+            if [(a['Track'],a['Artist']),artistmode,everything] in self.storedsel:
+                tabledata[-1][-1].toggle = False
         self.maintable.startboxwidth = [50,-1,-1,-1,-1,80]
         titles = ['','Track','Artist','Listens','Total Playtime','']
         if artistmode:
@@ -403,19 +420,30 @@ class Main:
                               datetotime(f"{ui.IDs['dropdownendyear'].active}-{self.months.index(self.ui.IDs['dropdownendmonth'].active)+1}-{ui.IDs['dropdownendday'].active}")]
         ui.IDs['datedisplay'].settext(timetodate(self.daterange[0],True)+' {arrow stick=0.5 scale=0.75} '+timetodate(self.daterange[1],True))
     def opengraphmenu(self):
+        ui.IDs['datewindow'].shut()
         ui.IDs['graphwindow'].open()
-    def generategraph(self):
-        songs = []
-        typ = ui.IDs['graph type'].active.lower()
+    def openeditmenu(self):
+        ui.IDs['graphwindow'].shut()
+        ui.IDs['datewindow'].open()
+    def clearselected(self):
+        self.storedsel = []
         for a in self.maintable.table:
             if type(a[-1]) == PyUI.BUTTON:
-                if not a[-1].toggle:
-                    songs.append(a[-1].song)
-        if len(songs)>0:
+                a[-1].toggle = True
+    def updateselected(self,song):
+        if song in self.storedsel:
+            self.storedsel.remove(song)
+        else:
+            self.storedsel.append(song)
+        print('updated to',self.storedsel)
+    def generategraph(self):
+        typ = ui.IDs['graph type'].active.lower()
+##        self.storeselected()
+        if len(self.storedsel)>0:
             time = ui.IDs['graph time'].slider
             PpT = ui.IDs['graph PpT'].slider
-            if typ == 'normal': Plot.plot(self.data,songs,self.daterange[0],self.daterange[1],(time/PpT)*24*60*60,time*24*60*60,ui.IDs['artistmode'].toggle,ui.IDs['combineall'].toggle)
-            else: Plot.plotday(self.data,songs,self.daterange[0],self.daterange[1],ui.IDs['artistmode'].toggle,ui.IDs['combineall'].toggle,typ)
+            if typ == 'normal': Plot.plot(self.data,self.storedsel,self.daterange[0],self.daterange[1],(time/PpT)*24*60*60,time*24*60*60)
+            else: Plot.plotday(self.data,self.storedsel,self.daterange[0],self.daterange[1],typ)
     def generatetimerankinggraph(self):
         Plot.plotsummed(self.summeddata)
         
