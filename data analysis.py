@@ -134,7 +134,6 @@ class Plot:
     def plot(data,songs,start,end,samplerate,samplesize):
         pointspertime = round(samplesize/samplerate)
         data.sort(key = lambda x: datetotime(x['endTime']))
-        print(songs)
         for song in songs:
             s = song[0]
             artistmode = song[1]
@@ -160,24 +159,31 @@ class Plot:
                 t+=samplerate
                     
             plt.xticks(rotation=30)
-            if not everything:
-                if artistmode: name = f'{s[1]}'
+            if not everything or len(songs)!=1:
+                if everything: name = 'Everything'
+                elif artistmode: name = f'{s[1]}'
                 else: name = f'{s[0]} - {s[1]}'
                 plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]),label=name)
             else:
                 plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]))
         plt.xlabel('Dates')
         plt.ylabel(f'Listen Time Over {round(samplesize/60/60/24)} Days in Hours')
+        everything = True
+        artistmode = True
+        for s in songs:
+            artistmode = (artistmode and s[1])
+            everything = (everything and s[2])
+        
         if everything:
             plt.title('All Music')
         else:
             if len(songs) == 1:
-                if artistmode: plt.title(f'{songs[0][1]}') 
-                else: plt.title(f'{songs[0][0]}-{songs[0][1]}')
+                if artistmode: plt.title(f'{songs[0][0][1]}') 
+                else: plt.title(f'{songs[0][0][0]}-{songs[0][0][1]}')
             else:
                 if artistmode: plt.title('Artists')
                 else: plt.title('Songs')
-            leg = plt.legend(loc='upper left')
+                leg = plt.legend(loc='upper left')
         plt.show()
     def plotsummed(summeddata):
         plt.yscale('symlog')
@@ -435,7 +441,6 @@ class Main:
             self.storedsel.remove(song)
         else:
             self.storedsel.append(song)
-        print('updated to',self.storedsel)
     def generategraph(self):
         typ = ui.IDs['graph type'].active.lower()
 ##        self.storeselected()
