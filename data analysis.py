@@ -270,7 +270,7 @@ class Main:
         ui.maketext(20,36,'',35,ID='datedisplay',anchor=('w/2',0),objanchor=(0,'h/2'),menu='tablepage')
         self.setdatetext(False)
         # Date menu
-        window = ui.makewindow(0,20,327,395,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='datewindow',bounditems=[
+        window = ui.makewindow(0,20,327,395,autoshutwindows=['graphwindow'],objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='datewindow',bounditems=[
 
             ui.maketext(0,5,'Start Date',35,objanchor=('w/2',0),anchor=('w/2',0)),
             ui.makedropdown(10,35,[x+1 for x in range(31)],command=self.setdatetext,pageheight=220,ID='dropdownstartday',layer=2,startoptionindex=int(timetodate(self.firstsong,True).split('/')[0])-1),
@@ -300,7 +300,7 @@ class Main:
 
         # Graph table
         ui.makebutton(115,36,'Graph',35,self.opengraphmenu,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),menu='tablepage')
-        window = ui.makewindow(0,20,327,260,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='graphwindow',bounditems=[
+        window = ui.makewindow(0,20,327,260,autoshutwindows=['datewindow'],objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='graphwindow',bounditems=[
             ui.makeslider(20,95,220,15,365,minp=1/24,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Time(days)',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1/24,ID='graph time',startp=30,layer=0),
             ui.makeslider(20,165,220,15,100,minp=1,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Points per Time',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1,ID='graph PpT',startp=30,layer=0),
 
@@ -426,10 +426,10 @@ class Main:
                               datetotime(f"{ui.IDs['dropdownendyear'].active}-{self.months.index(self.ui.IDs['dropdownendmonth'].active)+1}-{ui.IDs['dropdownendday'].active}")]
         ui.IDs['datedisplay'].settext(timetodate(self.daterange[0],True)+' {arrow stick=0.5 scale=0.75} '+timetodate(self.daterange[1],True))
     def opengraphmenu(self):
-        ui.IDs['datewindow'].shut()
+##        ui.IDs['datewindow'].shut()
         ui.IDs['graphwindow'].open()
     def openeditmenu(self):
-        ui.IDs['graphwindow'].shut()
+##        ui.IDs['graphwindow'].shut()
         ui.IDs['datewindow'].open()
     def clearselected(self):
         self.storedsel = []
