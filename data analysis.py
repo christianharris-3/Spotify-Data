@@ -87,13 +87,16 @@ def intotextfile(data):
 def converttofulldata(data):
     ndata = []
     for d in data:
-        if "ts" in d:
+        if "ts" in d: # check if full data rather than year data
             ndata.append(d)
             ndata[-1]['endTime'] = d['ts'].replace('T',' ').rsplit(':',1)[0]
             ndata[-1]['msPlayed'] = d['ms_played']
             ndata[-1]['artistName'] = d['master_metadata_album_artist_name']
             ndata[-1]['trackName'] = d['master_metadata_track_name']
-            ndata[-1]['username'] = ndata[-1]['username'].replace("58zgbg1s1y50n9szffm1llhqu",'Christian')
+            if 'username' in ndata[-1]:
+                ndata[-1]['username'] = ndata[-1]['username'].replace("58zgbg1s1y50n9szffm1llhqu",'Christian')
+            else:
+                ndata[-1]['username'] = 'Unknown User'
             ndata[-1]['album'] = ndata[-1]["master_metadata_album_album_name"]
         else:
             ndata.append({"ts":d['endTime'].replace(' ','T')+':00Z',
