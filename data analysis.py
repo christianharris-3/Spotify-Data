@@ -1,6 +1,7 @@
 import pygame,math,random,datetime,time,json,copy,os
-import matplotlib.pyplot as plt, numpy as np
-import PyUI as PyUI
+from matplotlib import pyplot as plt
+import numpy as np
+from UIpygame import PyUI as PyUI
 pygame.init()
 screen = pygame.display.set_mode((1200, 630),pygame.RESIZABLE)
 ui = PyUI.UI()
@@ -84,7 +85,7 @@ def intotextfile(data):
             except:
                 f.writelines(f'Unkown_Song time:{mstostr(a["msPlayed"])} endTime:{a["endTime"]}\n')
 
-def converttofulldata(data):
+def converttofulldata(data,no_username='Unknown User'):
     ndata = []
     for d in data:
         if "ts" in d: # check if full data rather than year data
@@ -96,7 +97,7 @@ def converttofulldata(data):
             if 'username' in ndata[-1]:
                 ndata[-1]['username'] = ndata[-1]['username'].replace("58zgbg1s1y50n9szffm1llhqu",'Christian')
             else:
-                ndata[-1]['username'] = 'Unknown User'
+                ndata[-1]['username'] = no_username
             ndata[-1]['album'] = ndata[-1]["master_metadata_album_album_name"]
         else:
             ndata.append({"ts":d['endTime'].replace(' ','T')+':00Z',
@@ -125,7 +126,7 @@ def count_streaminghistory_files(path):
     filesall = [PyUI.resourcepath(os.path.join(path,f)) for f in os.listdir(PyUI.resourcepath(path)) if (('Streaming_History' in f) and f[len(f)-5:]=='.json')]
     return len(filesyear+filesall)
 
-def loadjson(path=''):
+def loadjson(path='',no_username='Unknown User'):
     data = []
     filesyear = [PyUI.resourcepath(os.path.join(path,f)) for f in os.listdir(PyUI.resourcepath(path)) if (('StreamingHistory' in f) and f[len(f)-5:]=='.json')]
     filesall = [PyUI.resourcepath(os.path.join(path,f)) for f in os.listdir(PyUI.resourcepath(path)) if (('Streaming_History' in f) and f[len(f)-5:]=='.json')]
@@ -140,7 +141,7 @@ def loadjson(path=''):
             data += json.load(f)
 ##    if len(data) == 0:
 ##        data = dummyjson(420)
-    return converttofulldata(data)
+    return converttofulldata(data, no_username)
     
 class Plot:
     def __init__(self):
@@ -265,12 +266,11 @@ class Main:
         ui.maketext(0,70,'Select a file to get data',70,anchor=('w/2',0),center=True)
         
         data = []#['Current Path',count_streaminghistory_files(''),ui.makebutton(0,0,'Select',30,toggleable=True,ID='path_select_button_1')]]
-        for index,fil in enumerate(['']+os.listdir()):
-            if not '.' in fil:
-                func = PyUI.funcer(self.set_selected_path,path=fil)
-                if index == 0: name = 'Current Path'
-                else: name = f'/{fil}'
-                data.append([name,count_streaminghistory_files(fil),ui.makebutton(0,0,'Select',30,command=func.func,toggleable=True,ID=f'path_select_button_{len(data)+1}')])
+        for index,fil in enumerate(['.']+next(os.walk('.'))[1]):
+            func = PyUI.funcer(self.set_selected_path,path=fil)
+            if index == 0: name = 'Current Path'
+            else: name = f'/{fil}'
+            data.append([name,count_streaminghistory_files(fil),ui.makebutton(0,0,'Select',30,command=func.func,toggleable=True,ID=f'path_select_button_{len(data)+1}')])
 
 ##        ui.IDs['path_select_button_1'].press()
 ##        bindtoggles = [f'path_select_button_{n+1}' for n in range(len(data))]
@@ -291,7 +291,7 @@ class Main:
     def init_data(self):
         self.data = []
         for path in self.data_paths:
-            self.data+=loadjson(path)
+            self.data+=loadjson(path,path.split()[0])
         self.firstsong = time.time()
         self.lastsong = 0
         self.storedsel = []
@@ -334,7 +334,7 @@ class Main:
         self.setdatetext(False)
         # Date menu
         window = ui.makewindow(0,20,327,395,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='datewindow',bounditems=[
-
+            
             ui.maketext(0,5,'Start Date',35,objanchor=('w/2',0),anchor=('w/2',0)),
             ui.makedropdown(10,35,[x+1 for x in range(31)],command=self.setdatetext,pageheight=220,ID='dropdownstartday',layer=2,startoptionindex=int(timetodate(self.firstsong,True).split('/')[0])-1),
             ui.makedropdown(80,35,self.months,command=self.setdatetext,pageheight=220,ID='dropdownstartmonth',layer=2,startoptionindex=int(timetodate(self.firstsong,True).split('/')[1])-1),
@@ -534,21 +534,23 @@ while not done:
     pygameeventget = ui.loadtickdata()
     for event in pygameeventget:
         if event.type == pygame.QUIT:
-            pass
+            done = True
     screen.fill(PyUI.Style.wallpapercol)
     ui.rendergui(screen)
 
-    if ui.kprs[pygame.K_ESCAPE] and ui.activemenu == 'start':
-        ui = PyUI.UI()
-        ui.styleload_green()
-        ui.styleset(scalesize=False)
-        main = Main()
-        ui.movemenu('main',length=0,backchainadd=False)
-
+    if ui.kprs[pygame.K_ESCAPE]:
+        if ui.activemenu == 'start':
+            ui = PyUI.UI()
+            ui.styleload_green()
+            ui.styleset(scalesize=False)
+            main = Main()
+            ui.movemenu('main',length=0,backchainadd=False)
+        else:
+            done = True
+    
     pygame.display.flip()
     clock.tick(60)                                               
 pygame.quit()
-
 
 
 
