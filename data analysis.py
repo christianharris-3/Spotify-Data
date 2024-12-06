@@ -164,7 +164,7 @@ class Plot:
             while t<end and index+1<len(data):
                 a = data[index]
                 index+=1
-                if (not(artistmode or albummode or everything) and (a['trackName'],a['artistName'],a['username']) == (s[0],s[1],s[3])) or (artistmode and (a['artistName'],a['username']) == (s[1],s[3])) or (albummode and (a['artistName'],a['album'],a['username']) == (s[1],s[2],s[3])) or (everything and (a['username'] == s[23])): #(not artistmode and (a['trackName'],a['artistName'],a['album'],a['username']) == s) or (artistmode and (a['artistName'],a['username']) == (s[1],s[2])) or (everything and a['username'] == s[2]):
+                if (not(artistmode or albummode or everything) and (a['trackName'],a['artistName'],a['username']) == (s[0],s[1],s[3])) or (artistmode and (a['artistName'],a['username']) == (s[1],s[3])) or (albummode and (a['album'],a['username']) == (s[2],s[3])) or (everything and (a['username'] == s[3])): #(not artistmode and (a['trackName'],a['artistName'],a['album'],a['username']) == s) or (artistmode and (a['artistName'],a['username']) == (s[1],s[2])) or (everything and a['username'] == s[2]):
                     while datetotime(a['endTime'])>t+samplerate:
                         if t>start: graph.append([datetime.datetime.fromtimestamp(t),sum(samples[-pointspertime:])])
                         samples.append(0)
@@ -198,19 +198,18 @@ class Plot:
             artistmode = (artistmode and s[1])
             albummode = (albummode and s[2])
             everything = (everything and s[3])
-        
-        if everything:
-            plt.title('All Music')
+
+        if len(songs) == 1:
+            if everything: plt.title(f'All Music ({songs[0][0][3]})')
+            elif artistmode: plt.title(f'{songs[0][0][1]}')
+            elif albummode: plt.title(f'{songs[0][0][2]}-{songs[0][0][1]}')
+            else: plt.title(f'{songs[0][0][0]}-{songs[0][0][1]}')
         else:
-            if len(songs) == 1:
-                if artistmode: plt.title(f'{songs[0][0][1]}')
-                elif albummode: plt.title(f'{songs[0][0][2]}-{songs[0][0][1]}')
-                else: plt.title(f'{songs[0][0][0]}-{songs[0][0][1]}')
-            else:
-                if artistmode: plt.title('Artists')
-                elif albummode: plt.title('Albums')
-                else: plt.title('Songs')
-                leg = plt.legend(loc='upper left')
+            if everything: plt.title('All Music')
+            elif artistmode: plt.title('Artists')
+            elif albummode: plt.title('Albums')
+            else: plt.title('Songs')
+            leg = plt.legend(loc='upper left')
         plt.show()
     def plotsummed(summeddata):
         plt.yscale('symlog')
@@ -494,7 +493,7 @@ class Main:
             if datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
                 key = (a['trackName'],a['artistName'],a['username'])
                 if artistmode: key = (a['artistName'],a['username'])
-                if albummode: key = (a['album'],a['artistName'],a['username'])
+                if albummode: key = (a['album'],a['username'])
                 if everything: key = (a['username'],)
                 if not(key in self.summeddatadict):
                     self.summeddatadict[key] = {"Artist":a['artistName'],"Track":a['trackName'],"Listens":0,"Playtime":a['msPlayed'],'Listener':a['username'],'Album':a['album']}
