@@ -554,7 +554,7 @@ class Main:
             else: Plot.plotday(self.data,self.storedsel,self.daterange[0],self.daterange[1],typ)
     def generatetimerankinggraph(self):
         Plot.plotsummed(self.summeddata)
-    
+
 main = Main()
 
 while not done:
@@ -562,18 +562,20 @@ while not done:
     for event in pygameeventget:
         if event.type == pygame.QUIT:
             done = True
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                if ui.activemenu == 'start':
+                    ui = PyUI.UI()
+                    ui.styleload_green()
+                    ui.styleset(scalesize=False)
+                    new_main = Main()
+                    ui.movemenu('main', length=0, backchainadd=False)
+                elif ui.activemenu == 'main':
+                    done = True
+                else:
+                    ui.menuback()
     screen.fill(PyUI.Style.wallpapercol)
     ui.rendergui(screen)
-
-    if ui.kprs[pygame.K_ESCAPE]:
-        if ui.activemenu == 'start':
-            ui = PyUI.UI()
-            ui.styleload_green()
-            ui.styleset(scalesize=False)
-            main = Main()
-            ui.movemenu('main',length=0,backchainadd=False)
-        else:
-            done = True
     
     pygame.display.flip()
     clock.tick(60)                                               
