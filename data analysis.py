@@ -153,7 +153,8 @@ class Plot:
             print(song)
             s = song[0]
             artistmode = song[1]
-            everything = song[2]
+            albummode = song[2]
+            everything = song[3]
             graph = []
             samples = [0]
             t = start-samplesize
@@ -163,7 +164,7 @@ class Plot:
             while t<end and index+1<len(data):
                 a = data[index]
                 index+=1
-                if (not artistmode and (a['trackName'],a['artistName'],a['username']) == s) or (artistmode and (a['artistName'],a['username']) == (s[1],s[2])) or (everything and a['username'] == s[2]):
+                if (not(artistmode or albummode or everything) and (a['trackName'],a['artistName'],a['username']) == (s[0],s[1],s[3])) or (artistmode and (a['artistName'],a['username']) == (s[1],s[3])) or (albummode and (a['artistName'],a['album'],a['username']) == (s[1],s[2],s[3])) or (everything and (a['username'] == s[23])): #(not artistmode and (a['trackName'],a['artistName'],a['album'],a['username']) == s) or (artistmode and (a['artistName'],a['username']) == (s[1],s[2])) or (everything and a['username'] == s[2]):
                     while datetotime(a['endTime'])>t+samplerate:
                         if t>start: graph.append([datetime.datetime.fromtimestamp(t),sum(samples[-pointspertime:])])
                         samples.append(0)
@@ -181,28 +182,33 @@ class Plot:
                     
             
             if not everything or len(songs)!=1:
-                if everything: name = f'Everything ({s[2]})'
-                elif artistmode: name = f'{s[1]} ({s[2]})'
-                else: name = f'{s[0]} - {s[1]} ({s[2]})'
+                if everything: name = f'Everything ({s[3]})'
+                elif artistmode: name = f'{s[1]} ({s[3]})'
+                elif albummode: name = f'{s[2]} - {s[1]} ({s[3]})'
+                else: name = f'{s[0]} - {s[1]} ({s[3]})'
                 plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]),label=name)
             else:
                 plt.plot(np.array([x[0] for x in graph]),np.array([x[1] for x in graph]))
         plt.xlabel('Dates')
         plt.ylabel(f'Listen Time Over {round(samplesize/60/60/24)} Days in Hours')
         everything = True
+        albummode = True
         artistmode = True
         for s in songs:
             artistmode = (artistmode and s[1])
-            everything = (everything and s[2])
+            albummode = (albummode and s[2])
+            everything = (everything and s[3])
         
         if everything:
             plt.title('All Music')
         else:
             if len(songs) == 1:
-                if artistmode: plt.title(f'{songs[0][0][1]}') 
+                if artistmode: plt.title(f'{songs[0][0][1]}')
+                elif albummode: plt.title(f'{songs[0][0][2]}-{songs[0][0][1]}')
                 else: plt.title(f'{songs[0][0][0]}-{songs[0][0][1]}')
             else:
                 if artistmode: plt.title('Artists')
+                elif albummode: plt.title('Albums')
                 else: plt.title('Songs')
                 leg = plt.legend(loc='upper left')
         plt.show()
@@ -305,7 +311,7 @@ class Main:
         self.years = [a+1 for a in range(int(timetodate(self.firstsong).split('-')[0])-1,int(timetodate(self.lastsong).split('-')[0]))]
         self.months = months_of_the_year
 
-        self.sumdata(False,False,False,True)
+        self.sumdata(False,False,False,False,True)
 
         self.make_gui()
         self.refreshtopcharts()
@@ -333,7 +339,7 @@ class Main:
         ui.maketext(20,36,'',35,ID='datedisplay',anchor=('w/2',0),objanchor=(0,'h/2'),menu='tablepage')
         self.setdatetext(False)
         # Date menu
-        window = ui.makewindow(0,20,327,395,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='datewindow',bounditems=[
+        window = ui.makewindow(0,20,327,435,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='datewindow',bounditems=[
             
             ui.maketext(0,5,'Start Date',35,objanchor=('w/2',0),anchor=('w/2',0)),
             ui.makedropdown(10,35,[x+1 for x in range(31)],command=self.setdatetext,pageheight=220,ID='dropdownstartday',layer=2,startoptionindex=int(timetodate(self.firstsong,True).split('/')[0])-1),
@@ -348,10 +354,11 @@ class Main:
             ui.makeslider(100,165,140,15,100,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(-10,0,'Results',objanchor=('w','h/2'),anchor=(0,'h/2'))],increment=1,ID='searchresultsnum',startp=30,layer=0),
             ui.makeslider(100,205,140,15,"ui.searchresultsnum-min(ui.searchresultsnum,100)",boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(-20,0,'Start',objanchor=('w','h/2'),anchor=(0,'h/2'))],increment=1,ID='searchstartnum',startp=0,layer=0),
 
-            ui.makelabeledcheckbox(75,235,'Artist Mode',35,textpos='right',toggle=False,ID='artistmode',layer=0),
-            ui.makelabeledcheckbox(75,275,'Combine All',35,textpos='right',toggle=False,ID='combineall',layer=0),
+            ui.makelabeledcheckbox(75,235,'Artist Mode',35,textpos='right',toggle=False,ID='artistmode',layer=0,command=lambda: self.bindtoggle(['albummode','combineall'])),
+            ui.makelabeledcheckbox(75,275,'Album Mode',35,textpos='right',toggle=False,ID='albummode',layer=0,command=lambda: self.bindtoggle(['artistmode','combineall'])),
+            ui.makelabeledcheckbox(75,315,'Combine All',35,textpos='right',toggle=False,ID='combineall',layer=0,command=lambda: self.bindtoggle(['artistmode','albummode'])),
 
-            ui.makebutton(0,310,'Sort By: Listens',30,objanchor=('w/2',0),anchor=('w/2',0),toggleable=True,togglecol=0,toggletext='Sort By: Time',ID='sortbylistens'),
+            ui.makebutton(0,350,'Sort By: Listens',30,objanchor=('w/2',0),anchor=('w/2',0),toggleable=True,togglecol=0,toggletext='Sort By: Time',ID='sortbylistens'),
             
             ui.makebutton(0,-10,'Apply',32,self.search,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
         ])
@@ -392,11 +399,12 @@ class Main:
             album = search
         self.refreshtopcharts()
         self.refreshfiltered(artist,track,album)
+        
     def refreshfiltered(self,artist='',track='',album=''):
         cutoff = copy.copy(ui.IDs['searchresultsnum'].slider)
         startp = copy.copy(ui.IDs['searchstartnum'].slider)
-        if 'artistmode' in ui.IDs: artistmode,everything = ui.IDs['artistmode'].toggle,ui.IDs['combineall'].toggle
-        else: artistmode,everything = False,False
+        if 'artistmode' in ui.IDs: artistmode,albummode,everything = ui.IDs['artistmode'].toggle,ui.IDs['albummode'].toggle,ui.IDs['combineall'].toggle
+        else: artistmode,albummode,everything = False,False,False
             
         ndata = []
         for i,a in enumerate(self.summeddata):
@@ -411,16 +419,30 @@ class Main:
         ndata = ndata[startp:startp+cutoff]
         tabledata = []
         for a,i in ndata:
-            func = PyUI.funcer(self.updateselected,song=[(a['Track'],a['Artist'],a['Listener']),artistmode,everything])
-            tabledata.append([ui.maketext(-100,0,str(i+1),textcenter=True,col=self.maintable.col),a['Artist'],a['Listener'],ui.maketext(-100,0,str(a['Listens']),textcenter=True,col=self.maintable.col),mstostr(a['Playtime']),ui.makebutton(-50,0,'{dots}',toggleable=True,ID=f'{a["Track"]},{a["Artist"]}',command=func.func)])
+            func = PyUI.funcer(self.updateselected,song=[(a['Track'],a['Artist'],a['Album'],a['Listener']),artistmode,albummode,everything])
+            tabledata.append([ui.maketext(-100,0,str(i+1),textcenter=True,col=self.maintable.col),a['Track'],a['Artist'],a['Album'],a['Listener'],ui.maketext(-100,0,str(a['Listens']),textcenter=True,col=self.maintable.col),mstostr(a['Playtime']),ui.makebutton(-50,0,'{dots}',toggleable=True,ID=f'{a["Track"]},{a["Artist"]}',command=func.func)])
+            # if everything:
+            #     del tabledata[-1][1]
+            # elif not artistmode: tabledata[-1].insert(1,a['Track'])
             if everything:
+                del tabledata[-1][3]
+                del tabledata[-1][2]
                 del tabledata[-1][1]
-            elif not artistmode: tabledata[-1].insert(1,a['Track'])
-            tabledata[-1][-1].song = (a['Track'],a['Artist'])
-            if [(a['Track'],a['Artist']),artistmode,everything] in self.storedsel:
+            elif artistmode:
+                del tabledata[-1][3]
+                del tabledata[-1][1]
+            elif albummode:
+                del tabledata[-1][3]
+                del tabledata[-1][1]
+                tabledata[-1].insert(1,a['Album'])
+            tabledata[-1][-1].song = (a['Track'],a['Artist'],a['Album'])
+            if [(a['Track'],a['Artist'],a['Album']),artistmode,albummode,everything] in self.storedsel:
                 tabledata[-1][-1].toggle = False
-        self.maintable.startboxwidth = [50,-1,-1,-1,-1,-1,80]
-        titles = ['','Track','Artist','Listener','Listens','Total Playtime','']
+        self.maintable.startboxwidth = [50,-1,-1,-1,-1,-1,-1,80]
+        titles = ['','Track','Artist','Album','Listener','Listens','Total Playtime','']
+        if albummode:
+            self.maintable.startboxwidth = [50,-1,-1,-1,-1,-1,80]
+            titles = ['','Album','Artist','Listener','Listens','Total Playtime','']
         if artistmode:
             self.maintable.startboxwidth = [50,-1,-1,-1,-1,80]
             titles = ['','Artist','Listener','Listens','Total Playtime','']
@@ -433,13 +455,13 @@ class Main:
         self.maintable.threadrefresh()
 
     def refreshtopcharts(self):
-        topartists = [[a["Artist"]] for a in self.sumdata(True,True,False)[:5]]
-        topsongs = [[a["Track"]+'\n{"'+a["Artist"]+'" col=(190,200,160) scale=0.8}'] for a in self.sumdata(True,False,False)[:5]]
+        topartists = [[a["Artist"]] for a in self.sumdata(True,True,False,False)[:5]]
+        topsongs = [[a["Track"]+'\n{"'+a["Artist"]+'" col=(190,200,160) scale=0.8}'] for a in self.sumdata(True,False,False,False)[:5]]
         ui.IDs['top artists'].data = topartists
         ui.IDs['top artists'].refresh()
         ui.IDs['top songs'].data = topsongs
         ui.IDs['top songs'].refresh()
-        t0 = self.sumdata(True,False,True)
+        t0 = self.sumdata(True,False,False,True)
         if t0 == []: t0 = {'Listens':0,'Playtime':0}
         else: t0 = t0[0]
         days = ((self.daterange[1]-self.daterange[0])/60/60/24)
@@ -454,11 +476,13 @@ class Main:
         
         
         
-    def sumdata(self,retur=False,artistmode=-1,everything=-1,sortbylistens=-1):
+    def sumdata(self,retur=False,artistmode=-1,albummode=-1,everything=-1,sortbylistens=-1):
         starttime = self.daterange[0]
         endtime = self.daterange[1]
         if artistmode == -1:
             artistmode = ui.IDs['artistmode'].toggle
+        if albummode == -1:
+            albummode = ui.IDs['albummode'].toggle
         if everything == -1:
             everything = ui.IDs['combineall'].toggle
         if sortbylistens == -1:
@@ -470,6 +494,7 @@ class Main:
             if datetotime(a['endTime'])>starttime and datetotime(a['endTime'])<endtime:
                 key = (a['trackName'],a['artistName'],a['username'])
                 if artistmode: key = (a['artistName'],a['username'])
+                if albummode: key = (a['album'],a['artistName'],a['username'])
                 if everything: key = (a['username'],)
                 if not(key in self.summeddatadict):
                     self.summeddatadict[key] = {"Artist":a['artistName'],"Track":a['trackName'],"Listens":0,"Playtime":a['msPlayed'],'Listener':a['username'],'Album':a['album']}
@@ -495,6 +520,9 @@ class Main:
         if num: return count
         return playtime
 
+    def bindtoggle(self,bindings):
+        for b in bindings:
+            ui.IDs[b].toggle = False
     def setdatetext(self,pull=True):
         if pull:
             self.ui = ui
