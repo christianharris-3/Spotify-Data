@@ -297,6 +297,11 @@ class Main:
         self.data = []
         for path in self.data_paths:
             self.data+=loadjson(path,path.split()[0])
+
+        self.number_users = len(self.data_paths)
+        # if self.number_users == 2:
+        #     self.calculate_overlap(False, False)
+
         self.firstsong = time.time()
         self.lastsong = 0
         self.storedsel = []
@@ -319,6 +324,9 @@ class Main:
         
 
     def make_gui(self):
+        compare = self.number_users > 1
+        compare_string = compare*'-133'
+
         # Start page
         ui.maketext(0,-200,'Spotify Stats',100,anchor=('w/2','h/2'),center=True,scalesize=True,menu='start')
         ui.makebutton(0,-100,'Song Table',50,lambda: ui.movemenu('tablepage','up'),anchor=('w/2','h/2'),center=True,scalesize=True,menu='start')
@@ -332,10 +340,10 @@ class Main:
         ui.makebutton(-20,36,'Back',35,ui.menuback,'tablepage',anchor=('w',0),objanchor=('w','h/2'))
         
         # Search Bar
-        self.mainsearchbar = ui.makesearchbar(20,36,width='w/2-40',objanchor=(0,'h/2'),textsize=35,command=self.search,menu='tablepage')
+        self.mainsearchbar = ui.makesearchbar(20,36,width='w/2-20'+compare_string,objanchor=(0,'h/2'),textsize=35,command=self.search,menu='tablepage')
         
         # Date system
-        ui.maketext(20,36,'',35,ID='datedisplay',anchor=('w/2',0),objanchor=(0,'h/2'),menu='tablepage')
+        ui.maketext(20,36,'',35,ID='datedisplay',anchor=('w/2'+compare_string,0),objanchor=(0,'h/2'),menu='tablepage')
         self.setdatetext(False)
         # Date menu
         window = ui.makewindow(0,20,327,435,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='datewindow',bounditems=[
@@ -361,14 +369,14 @@ class Main:
             
             ui.makebutton(0,-10,'Apply',32,self.search,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0)
         ])
-        ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),command=self.openeditmenu,menu='tablepage')
+        ui.makebutton(40,36,'Edit',35,anchor=('w/2+ui.IDs["datedisplay"].width'+compare_string,0),objanchor=(0,'h/2'),command=self.openeditmenu,menu='tablepage')
 
         # Main table
         self.maintable = ui.makescrollertable(20,72,[],[],textsize=25,boxheight=[40,-1],boxwidth=[50,-1,-1,-1,-1,-1,80],width='w-40',pageheight='h-92',scalesize=False,guessheight=36,menu='tablepage',ID='main_data_table')
         self.refreshfiltered()
 
         # Graph table
-        ui.makebutton(115,36,'Graph',35,self.opengraphmenu,anchor=('w/2+ui.IDs["datedisplay"].width',0),objanchor=(0,'h/2'),menu='tablepage')
+        ui.makebutton(115,36,'Graph',35,self.opengraphmenu,anchor=('w/2+ui.IDs["datedisplay"].width'+compare_string,0),objanchor=(0,'h/2'),menu='tablepage')
         window = ui.makewindow(0,20,327,260,objanchor=('w/2',0),anchor=('w/2',0),menu='tablepage',ID='graphwindow',bounditems=[
             ui.makeslider(20,95,220,15,365,minp=1/24,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Time(days)',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1/24,ID='graph time',startp=30,layer=0),
             ui.makeslider(20,165,220,15,100,minp=1,boundtext=ui.maketextbox(15,0,'',65,objanchor=(0,'h/2'),anchor=('w','h/2'),numsonly=True,linelimit=1),objanchor=(0,'h/2'),bounditems=[ui.maketext(20,-10,'Points per Time',objanchor=('w/2','h'),anchor=('w/2',0))],increment=1,ID='graph PpT',startp=30,layer=0),
@@ -378,6 +386,11 @@ class Main:
             ui.makebutton(0,-10,'Create',32,command=self.generategraph,objanchor=('w/2','h'),anchor=('w/2','h'),layer=0),
             ])
 
+        # Compare Menu
+        if compare:
+            ui.makebutton(215, 36, 'Compare', 35, self.opencomparemenu, anchor=('w/2+ui.IDs["datedisplay"].width'+compare_string, 0),objanchor=(0, 'h/2'), menu='tablepage')
+            ui.makewindowedmenu(0,20,1000,'h-40','comparemenu','tablepage',objanchor=('w/2',0),anchor=('w/2',0),ID='comparewindow',bounditems=[
+                          ui.makescrollertable(10,10,['no'],['title'],width=980,pageheight='h-20',ID='comparetable',guessheight=36,scalesize=False)])
     def search(self):
         ui.IDs['datewindow'].shut()
         self.sumdata()
@@ -419,10 +432,9 @@ class Main:
         tabledata = []
         for a,i in ndata:
             func = PyUI.funcer(self.updateselected,song=[(a['Track'],a['Artist'],a['Album'],a['Listener']),artistmode,albummode,everything])
-            tabledata.append([ui.maketext(-100,0,str(i+1),textcenter=True,col=self.maintable.col),a['Track'],a['Artist'],a['Album'],a['Listener'],ui.maketext(-100,0,str(a['Listens']),textcenter=True,col=self.maintable.col),mstostr(a['Playtime']),ui.makebutton(-50,0,'{dots}',toggleable=True,ID=f'{a["Track"]},{a["Artist"]}',command=func.func)])
-            # if everything:
-            #     del tabledata[-1][1]
-            # elif not artistmode: tabledata[-1].insert(1,a['Track'])
+            tabledata.append([ui.maketext(-100,0,str(i+1),textcenter=True,col=self.maintable.col),a['Track'],a['Artist'],
+                              a['Album'],a['Listener'],ui.maketext(-100,0,str(a['Listens']),textcenter=True,col=self.maintable.col),
+                              mstostr(a['Playtime']),ui.makebutton(-50,0,'{dots}',toggleable=True,ID=f'{a["Track"]},{a["Artist"]}',command=func.func)])
             if everything:
                 del tabledata[-1][3]
                 del tabledata[-1][2]
@@ -508,7 +520,98 @@ class Main:
             
         if not retur: self.summeddata = lis
         else: return lis
-        
+
+    def calculate_overlap(self,artistmode,albummode,compare_size=2):
+        summeddata = self.sumdata(True, artistmode, albummode, False, True)
+        collecting = []
+        overlap = []
+        if artistmode: matcher = ['Artist']
+        elif albummode: matcher = ['Album']
+        else: matcher = ['Artist','Track']
+
+        user_listen_data = {}
+
+        # Calculate all overlaps in music and add it to overlap list
+        for song in summeddata:
+            if song['Listener'] not in user_listen_data:
+                user_listen_data[song['Listener']] = {'Listen_Time':song['Playtime'],'Listens':song['Listens']}
+            else:
+                user_listen_data[song['Listener']]['Listen_Time'] += song['Playtime']
+                user_listen_data[song['Listener']]['Listens'] += song['Listens']
+
+            match_found = False
+            for found in collecting:
+                matches = True
+                for m in matcher:
+                    if song[m] != found[m]:
+                        matches = False
+                        break
+                if matches:
+                    match_found = True
+                    found['Listens'][song['Listener']] = song['Listens']
+                    found['Playtime'][song['Listener']] = song['Playtime']
+                    if len(found['Listens']) == compare_size:
+                        overlap.append(found)
+            if not match_found:
+                collecting.append({'Artist':song['Artist'],
+                                'Track':song['Track'],
+                                'Album':song['Album'],
+                                'Listens':{song['Listener']:song['Listens']},
+                                'Playtime':{song['Listener']:song['Playtime']}})
+
+        for song in overlap:
+            for user in song['Playtime']:
+                song['Playtime'][user]/=user_listen_data[user]['Listen_Time']
+        # Sort and return the overlap
+        def sort_key(song):
+            val = 1
+            for user in song['Playtime']:
+                val*=song['Playtime'][user]
+            song['Match_Value'] = val
+            return val
+        overlap.sort(key=sort_key, reverse=True)
+        return overlap
+
+    def load_compare_table(self):
+        artistmode = ui.IDs['artistmode'].toggle
+        albummode = ui.IDs['albummode'].toggle
+        overlap = self.calculate_overlap(artistmode, albummode, self.number_users)
+        matchsize_accounter = overlap[0]['Match_Value']
+
+        sortbylistens = ui.IDs['sortbylistens'].toggle
+        items_in_table = ui.IDs['searchresultsnum'].slider
+        start_index = min(ui.IDs['searchstartnum'].slider,len(overlap)-items_in_table)
+
+        # Ensure only one of songmde, albummode and artistmode are True
+        songmode = False
+        if artistmode: albummode = False
+        elif not albummode: songmode = True
+
+        # Create table
+        titles = ['']+['Track','Artist','Album']*songmode+['Album','Artist']*albummode+['Artist']*artistmode+['Listens Match']
+        boxwidth = [50]+[200]*(len(titles)-2)+[-1]
+        slider_width = ui.IDs['comparetable'].width-50-200*(len(titles)-2)-15
+        data = []
+        for i,song in enumerate(overlap[start_index:start_index+items_in_table]):
+            new_line = [ui.maketext(-100,0,str(i+start_index+1),textcenter=True,col=self.maintable.col)]
+            new_line+= [song['Track'],song['Artist'],song['Album']]*songmode
+            new_line+= [song['Album'], song['Artist']] * albummode
+            new_line+= [song['Artist']]*artistmode
+            st = ', '.join([f'{song["Listens"][user]}' for user in song['Listens']])
+            new_line+= [ui.makeslider(0, 0, slider_width, 30, startp=song['Match_Value']/matchsize_accounter, maxp=1,
+                                      movetoclick=False, roundedcorners=0,
+                      button=ui.makebutton(0, 0, '', width=0, height=0, borderdraw=False, backingdraw=False,
+                                           clickableborder=0),
+                                      bounditems=[ui.maketext(-5,0,st,anchor=('w','h/2'),textcol=PyUI.shiftcolor_rgb(PyUI.Style.defaults['textcol'],-30),objanchor=('w','h/2'),backingcol=(107,132,106),backingdraw=False)])]
+            data.append(new_line)
+
+        ui.IDs['comparetable'].wipe()
+        ui.IDs['comparetable'].startboxwidth = boxwidth
+        ui.IDs['comparetable'].titles = [ui.maketext(0,-100,a,30,textcenter=True) for a in titles]
+        ui.IDs['comparetable'].data = data
+        ui.IDs['comparetable'].threadrefresh()
+
+
     def countsong(self,info,starttime,endtime,num=True):
         count = 0
         playtime = 0
@@ -534,6 +637,11 @@ class Main:
     def openeditmenu(self):
         ui.IDs['graphwindow'].shut()
         ui.IDs['datewindow'].open()
+    def opencomparemenu(self):
+        ui.IDs['graphwindow'].shut()
+        ui.IDs['datewindow'].shut()
+        self.load_compare_table()
+        ui.movemenu('comparemenu','down')
     def clearselected(self):
         self.storedsel = []
         for a in self.maintable.table:
